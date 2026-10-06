@@ -201,6 +201,8 @@
   .status.show { display: block; }
   .status.lokal { background: var(--warn); }
   .laddar { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 40; color: var(--muted); font-size: 15px; gap: 10px; }
+  .klasstabell th, .klasstabell td { padding: 7px 9px; font-size: 13px; }
+  .klasstabell td:nth-child(10) { max-width: 220px; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
   .hint { color: var(--muted); font-size: 13px; }
@@ -351,7 +353,7 @@ function seedData() {
   return {
     version: 1,
     tavling: { namn: 'Ronneby Horse Show', vecka: 'Vecka 7', dagar: ['ons', 'tor', 'fre', 'lor', 'son'] },
-    personer, sektioner: Object.values(S), omraden,
+    personer, sektioner: Object.values(S), omraden, klasser: [],
   };
 }
 
@@ -377,6 +379,7 @@ function tillRader(st) {
   const r = [];
   r.push({ samling: 'installningar', id: 'tavling', data: st.tavling });
   st.personer.forEach(x => r.push({ samling: 'personer', id: x.id, data: x }));
+  (st.klasser || []).forEach(x => r.push({ samling: 'klasser', id: x.id, data: x }));
   st.sektioner.forEach((x, i) => { x.ordning = i; r.push({ samling: 'sektioner', id: x.id, data: x }); });
   st.omraden.forEach((x, i) => { x.ordning = i; r.push({ samling: 'omraden', id: x.id, data: x }); });
   (st.logg || []).forEach(x => r.push({ samling: 'logg', id: x.id, data: x }));
@@ -390,7 +393,7 @@ function franRader(rader) {
   return {
     version: 1,
     tavling: g.installningar?.[0] || seedData().tavling,
-    personer: g.personer || [], sektioner: (g.sektioner || []).sort(ordn), omraden: (g.omraden || []).sort(ordn),
+    personer: g.personer || [], klasser: g.klasser || [], sektioner: (g.sektioner || []).sort(ordn), omraden: (g.omraden || []).sort(ordn),
     logg: (g.logg || []).sort(tid), anslag: (g.anslag || []).sort(tid),
   };
 }
@@ -413,15 +416,17 @@ function mergeInPlace(mal, kalla) {
   return kalla;
 }
 
-let synkad = {};   // samling/id -> JSON-sträng som servern senast bekräftat
+let synkad = {};   // samling/id -> JSON-sträng som vi tror att servern har
+const sant = {};   // samling/id -> de senaste versionerna vi själva skickat (för att känna igen egna ekon)
+const sandaDelete = new Set();
 const nyckel = r => r.samling + '/' + r.id;
 let sparKo = Promise.resolve();
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
   if (!sb) { clearTimeout(saveT); saveT = setTimeout(() => toast('Sparat (bara på den här datorn)'), 150); return; }
   const rader = tillRader(state); const nu = {}; const upserts = [];
-  for (const r of rader) { const k = nyckel(r); const j = JSON.stringify(r.data); nu[k] = j; if (synkad[k] !== j) upserts.push({ ...r, data: JSON.parse(j) }); }
-  const borttagna = Object.keys(synkad).filter(k => !(k in nu)).map(k => { const i = k.indexOf('/'); return { samling: k.slice(0, i), id: k.slice(i + 1) }; });
+  for (const r of rader) { const k = nyckel(r); const j = JSON.stringify(r.data); nu[k] = j; if (synkad[k] !== j) { upserts.push({ ...r, data: JSON.parse(j) }); (sant[k] ||= []).push(j); if (sant[k].length > 8) sant[k].shift(); } }
+  const borttagna = Object.keys(synkad).filter(k => !(k in nu)).map(k => { const i = k.indexOf('/'); sandaDelete.add(k); return { samling: k.slice(0, i), id: k.slice(i + 1) }; });
   if (!upserts.length && !borttagna.length) return;
   const fore = synkad; synkad = nu;
   sparKo = sparKo.then(async () => {
@@ -447,15 +452,43 @@ function tillampa(rader) {
   mergeInPlace(state, franRader(rader));
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
 }
-let serverRader = new Map();
+// Ändringar från andra: bara den berörda raden rörs, så egna osparade ändringar i andra rader står kvar.
+const SAMLING_LISTA = { personer: 'personer', klasser: 'klasser', sektioner: 'sektioner', omraden: 'omraden', logg: 'logg', anslag: 'anslag' };
+function tillampaRad(r) {
+  const k = nyckel(r); const j = JSON.stringify(r.data);
+  if (r.samling === 'installningar') { mergeInPlace(state.tavling, r.data); }
+  else {
+    const lista = SAMLING_LISTA[r.samling]; if (!lista) return;
+    state[lista] ||= [];
+    const bef = state[lista].find(x => x.id === r.id);
+    if (bef) mergeInPlace(bef, r.data); else state[lista].push(r.data);
+    if (lista === 'sektioner' || lista === 'omraden') state[lista].sort((a, b) => (a.ordning ?? 0) - (b.ordning ?? 0));
+    if (lista === 'logg' || lista === 'anslag') state[lista].sort((a, b) => (a.tid || '').localeCompare(b.tid || ''));
+  }
+  synkad[k] = j;
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+}
+function taBortRad(samling, id) {
+  const lista = SAMLING_LISTA[samling]; if (!lista || !state[lista]) return;
+  state[lista] = state[lista].filter(x => x.id !== id);
+  delete synkad[samling + '/' + id];
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+}
 function lyssna() {
   sb.channel('poster-andringar').on('postgres_changes', { event: '*', schema: 'public', table: 'poster' }, payload => {
     const r = payload.eventType === 'DELETE' ? payload.old : payload.new;
     if (!r || !r.samling) return;
     const k = r.samling + '/' + r.id;
-    if (payload.eventType === 'DELETE') { if (!serverRader.has(k)) return; serverRader.delete(k); }
-    else { const j = JSON.stringify(r.data); if (synkad[k] === j) { serverRader.set(k, r); return; } serverRader.set(k, { samling: r.samling, id: r.id, data: r.data }); }
-    tillampa([...serverRader.values()]);
+    if (payload.eventType === 'DELETE') {
+      if (sandaDelete.has(k)) { sandaDelete.delete(k); return; }   // eko av vår egen radering
+      if (!(k in synkad)) return;                                   // fanns inte hos oss
+      taBortRad(r.samling, r.id);
+    } else {
+      const j = JSON.stringify(r.data);
+      if ((sant[k] || []).includes(j) || synkad[k] === j) return;  // eko av något vi själva skickat, eller redan känt
+      if (sandaDelete.has(k)) return;                               // sent eko av en rad vi sedan tagit bort
+      tillampaRad({ samling: r.samling, id: r.id, data: r.data });
+    }
     render();
   }).subscribe(st => { if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') status('Tappade kontakten med servern. Ladda om sidan.'); });
 }
@@ -472,7 +505,6 @@ async function starta() {
       rader = tillRader(state).map(r => ({ ...r, data: JSON.parse(JSON.stringify(r.data)) }));
       const { error } = await sb.from('poster').upsert(rader.map(r => ({ ...r, uppdaterad: new Date().toISOString() }))); if (error) throw error;
     }
-    serverRader = new Map(rader.map(r => [nyckel(r), r]));
     tillampa(rader);
     lyssna();
     laddar.remove(); render(); if (!vem) dlgVem(true);
@@ -484,10 +516,10 @@ async function starta() {
 const VEM_KEY = 'tavlingssektionen.vem';
 let vem = localStorage.getItem(VEM_KEY) || '';
 function sattVem(namn) { vem = (namn || '').trim(); localStorage.setItem(VEM_KEY, vem); renderNav(); }
-function logga(omradeId, text) {
+function logga(omradeId, text, typ) {
   state.logg ||= [];
   const o = omradeId ? omrById(omradeId) : null;
-  state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: o ? o.sektionId : null, omradeId: omradeId || null, omrade: o ? o.namn : '', text });
+  state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: o ? o.sektionId : null, omradeId: omradeId || null, omrade: o ? o.namn : '', text, ...(typ ? { typ } : {}) });
   if (state.logg.length > 5000) state.logg.splice(0, state.logg.length - 5000);
 }
 function toast(msg) {
@@ -572,6 +604,7 @@ function renderNav() {
   let h = `
     <button class="${act('oversikt')}" onclick="go('oversikt')">🏠 Översikt ${anslagBadge()}</button>
     <button class="${act('schema')}" onclick="go('schema')">📅 Schema <span class="count">${allaPass().length}</span></button>
+    <button class="${act('klasser')}" onclick="go('klasser')">🏇 Klasser <span class="count">${(state.klasser || []).length}</span></button>
     <button class="${act('personer')}" onclick="go('personer')">👥 Personer <span class="count">${state.personer.length}</span></button>
     <h4>Kategorier och områden</h4>`;
   for (const s of state.sektioner) {
@@ -602,6 +635,7 @@ function render() {
   else if (v === 'omrade') m.innerHTML = vyOmrade(route.id);
   else if (v === 'schema') m.innerHTML = vySchema();
   else if (v === 'personer') m.innerHTML = vyPersoner();
+  else if (v === 'klasser') m.innerHTML = vyKlasser();
   else if (v === 'installningar') m.innerHTML = vyInstallningar();
 }
 
@@ -846,6 +880,94 @@ function vySchema() {
   return h;
 }
 
+/* ============ Klasser ============ */
+const KLASS_FALT = [
+  // [nyckel, rubrik, typ, placeholder]
+  ['avd', 'Avd', 'text', 'A eller B'],
+  ['niva', 'Nivå', 'text', '1–4'],
+  ['hojd', 'Höjd (cm)', 'text', '120'],
+  ['bedomning', 'Bedömning', 'text', 'A, A:0, A+A:0 med totalfel …'],
+  ['prispeng', 'Prispengar', 'text', '1500, 1000, 800, 600, 400 till plac'],
+  ['info', 'Info', 'text', 'Bukett …'],
+  ['avgift', 'Avgift (kr)', 'number', '260'],
+  ['eavgift', 'Efteranmälningsavgift (kr)', 'number', '50'],
+  ['antalPlacerade', 'Antal placerade', 'number', ''],
+  ['utgiftVinster', 'Utgift vinster (kr)', 'number', ''],
+  ['startavgifter', 'Startavgifter (kr)', 'number', ''],
+  ['sponsor', 'Sponsor', 'text', 'Vem sponsrar klassen'],
+];
+const KLASS_JA = [['rosett', 'Rosett'], ['avgTillbaka', 'Avgift tillbaka'], ['hederspris', 'Hederspris']];
+const klassNamn = k => `Klass ${k.nr}`;
+const klassKort = k => `Klass ${k.nr}${k.hojd ? ` · ${k.hojd} cm` : ''}${k.avd ? ` · Avd ${k.avd}` : ''}`;
+const klassById = id => (state.klasser || []).find(k => k.id === id);
+const klassOrdning = (a, b) => sortDag(a.dag, b.dag) || (parseFloat(a.nr) || 0) - (parseFloat(b.nr) || 0) || String(a.nr).localeCompare(String(b.nr), 'sv');
+const kr = v => (v === '' || v == null) ? '' : Number(v).toLocaleString('sv-SE');
+
+function vyKlasser() {
+  const klasser = [...(state.klasser || [])].sort(klassOrdning);
+  let h = `<div class="topbar"><div><h1>Klasser</h1><div class="sub">${klasser.length ? `${klasser.length} klasser` : 'Inga klasser inlagda ännu'} · klasserna går att välja på pass i schemat</div></div>
+    <div class="actions"><button class="btn" onclick="window.print()">Skriv ut</button><button class="btn primary" onclick="dlgKlass()">+ Ny klass</button></div></div>`;
+  if (!klasser.length) h += `<div class="empty">Lägg in tävlingens klasser här: dag, nummer, avdelning, nivå, höjd, bedömning, rosett, hederspris, prispengar, avgifter och sponsor. Sedan kan du välja klass när du lägger pass i ett schema.</div>`;
+  const dagar = [...new Set(klasser.map(k => k.dag))].sort(sortDag);
+  for (const d of dagar) {
+    const kd = klasser.filter(k => k.dag === d);
+    h += `<div class="section-head"><h2>${esc(dag(d)?.label || d)}</h2><div class="line"></div><span class="hint">${kd.length} klasser</span></div>
+      <div class="block" style="padding:0;overflow:auto"><table class="klasstabell"><thead><tr>
+        <th>Klass</th><th>Avd</th><th>Nivå</th><th>Höjd</th><th>Bedömning</th><th title="Rosett">Ros.</th><th title="Avgift tillbaka">Avg. tillb.</th><th title="Hederspris">Hed.</th><th>Prispengar</th><th>Info</th><th>Avgift</th><th title="Efteranmälningsavgift">E.avg</th><th>Sponsor</th><th></th>
+      </tr></thead><tbody>`;
+    for (const k of kd) {
+      const ja = v => v ? '<span style="color:var(--green);font-weight:700">Ja</span>' : '<span class="hint">–</span>';
+      h += `<tr onclick="dlgKlass('${k.id}')" style="cursor:pointer">
+        <td><b>${esc(k.nr)}</b></td><td>${esc(k.avd)}</td><td>${esc(k.niva)}</td><td>${esc(k.hojd)}</td><td>${esc(k.bedomning)}</td>
+        <td>${ja(k.rosett)}</td><td>${ja(k.avgTillbaka)}</td><td>${ja(k.hederspris)}</td>
+        <td style="white-space:nowrap">${esc(k.prispeng)}</td><td>${esc(k.info)}</td><td>${kr(k.avgift)}</td><td>${kr(k.eavgift)}</td><td>${esc(k.sponsor)}</td>
+        <td style="white-space:nowrap" onclick="event.stopPropagation()"><span class="ops"><button class="iconbtn" title="Redigera" onclick="dlgKlass('${k.id}')">✎</button><button class="iconbtn danger" title="Ta bort" onclick="taBortKlass('${k.id}')">🗑</button></span></td></tr>`;
+    }
+    h += `</tbody></table></div>`;
+  }
+  h += `<div class="block" style="margin-top:24px"><h2>Ändringslogg <span class="hint" style="font-weight:400">klasser som lagts till, ändrats eller tagits bort</span></h2>${loggLista((state.logg || []).filter(r => r.typ === 'klass'), 'klasser', false)}</div>`;
+  return h;
+}
+function nastaKlassNr() { const n = (state.klasser || []).map(k => parseFloat(k.nr)).filter(x => !isNaN(x)); return n.length ? Math.max(...n) + 1 : 1; }
+function dlgKlass(kid) {
+  const k = kid ? klassById(kid) : null;
+  const dagar = DAGAR_ALLA.filter(d => state.tavling.dagar.includes(d.id) || d.id === k?.dag);
+  const dagDefault = k?.dag || [...(state.klasser || [])].sort(klassOrdning).at(-1)?.dag || dagar[0]?.id;
+  openDlg(`<h2>${k ? 'Klass ' + esc(k.nr) : 'Ny klass'}</h2>
+    <div class="two" style="gap:12px">
+      <div><label class="f">Dag</label><select name="dag">${dagar.map(d => `<option value="${d.id}" ${dagDefault === d.id ? 'selected' : ''}>${esc(d.label)}</option>`).join('')}</select></div>
+      <div><label class="f">Klassnummer</label><input type="text" name="nr" value="${esc(k ? k.nr : nastaKlassNr())}" required></div>
+    </div>
+    <div class="two" style="gap:12px">${KLASS_FALT.map(([n, rub, typ, ph]) => `<div><label class="f">${esc(rub)}</label><input type="${typ}" name="${n}" value="${esc(k?.[n] ?? '')}" placeholder="${esc(ph)}" ${typ === 'number' ? 'min="0" step="1"' : ''}></div>`).join('')}</div>
+    <label class="f">Gäller för klassen</label>
+    <div class="chips">${KLASS_JA.map(([n, rub]) => `<label class="chip pick ${k?.[n] ? 'on' : ''}"><input type="checkbox" name="${n}" ${k?.[n] ? 'checked' : ''} style="display:none" onchange="this.parentElement.classList.toggle('on',this.checked)">${esc(rub)}</label>`).join('')}</div>
+    <label class="f">Anteckning</label><textarea name="anteckning" rows="3">${esc(k?.anteckning)}</textarea>
+    ${foot(k ? `<button type="button" class="btn danger" onclick="taBortKlass('${k.id}')">Ta bort klass</button>` : '')}`,
+    f => {
+      const nr = f.nr.value.trim(); if (!nr) return false;
+      const d = { dag: f.dag.value, nr, anteckning: f.anteckning.value.trim() };
+      for (const [n, , typ] of KLASS_FALT) d[n] = typ === 'number' ? (f[n].value === '' ? '' : Number(f[n].value)) : f[n].value.trim();
+      for (const [n] of KLASS_JA) d[n] = f[n].checked;
+      const krock = (state.klasser || []).find(x => x !== k && String(x.nr) === nr);
+      if (krock && !confirm(`Det finns redan en Klass ${nr} (${dag(krock.dag)?.label}). Lägga in en till med samma nummer?`)) return false;
+      if (k) {
+        const andr = Object.keys(d).filter(n => JSON.stringify(d[n]) !== JSON.stringify(k[n] ?? (typeof d[n] === 'boolean' ? false : '')));
+        Object.assign(k, d);
+        if (andr.length) logga(null, `ändrade ${klassNamn(k)} (${andr.map(n => ({ dag: 'dag', nr: 'nummer', anteckning: 'anteckning', ...Object.fromEntries(KLASS_FALT.map(([x, r]) => [x, r.toLowerCase()])), ...Object.fromEntries(KLASS_JA.map(([x, r]) => [x, r.toLowerCase()])) }[n] || n)).join(', ')})`, 'klass');
+      } else { state.klasser ||= []; state.klasser.push({ id: uid(), ...d }); logga(null, `lade till ${klassNamn(d)} (${dag(d.dag)?.label}${d.hojd ? `, ${d.hojd} cm` : ''}${d.avd ? `, avd ${d.avd}` : ''})`, 'klass'); }
+      save(); render();
+    }, true);
+}
+function taBortKlass(kid) {
+  const k = klassById(kid);
+  const pass = allaPass().filter(p => p.klassId === kid).length;
+  if (!confirm(`Ta bort ${klassNamn(k)} (${dag(k.dag)?.label})?${pass ? ` ${pass} pass i schemat pekar på den; de behåller texten men tappar kopplingen.` : ''}`)) return;
+  state.klasser = state.klasser.filter(x => x.id !== kid);
+  for (const o of state.omraden) for (const sc of o.scheman) for (const p of sc.pass) if (p.klassId === kid) delete p.klassId;
+  logga(null, `tog bort ${klassNamn(k)} (${dag(k.dag)?.label})`, 'klass');
+  if (dlg.open) dlg.close(); save(); render();
+}
+
 function vyPersoner() {
   const pers = [...state.personer].sort((a, b) => a.namn.localeCompare(b.namn, 'sv'));
   const pass = allaPass();
@@ -865,7 +987,7 @@ function vyPersoner() {
       <td style="white-space:nowrap"><span class="ops"><button class="iconbtn" onclick="dlgPerson('${p.id}')">✎</button><button class="iconbtn danger" onclick="taBortPerson('${p.id}')">🗑</button></span></td></tr>`;
   }
   h += `</tbody></table></div>`;
-  h += `<div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">personer som lagts till, ändrats eller tagits bort</span></h2>${loggLista((state.logg || []).filter(r => !r.kategoriId), 'personer', false)}</div>`;
+  h += `<div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">personer som lagts till, ändrats eller tagits bort</span></h2>${loggLista((state.logg || []).filter(r => !r.kategoriId && !r.typ), 'personer', false)}</div>`;
   return h;
 }
 
@@ -1062,8 +1184,12 @@ function dlgPass(oid, sid, pid, dagDefault) {
       <p class="hint" style="margin:6px 0 0">Lämna tiderna tomma för ett pass som gäller hela dagen.</p>
     </div>
     <div class="lage-klass" style="display:none">
+      ${(state.klasser || []).length ? `<label class="f">Välj klass</label><select name="klassval" onchange="passValdKlass(this.form)">
+        <option value="">Skriv själv…</option>
+        ${[...state.klasser].sort(klassOrdning).map(k => `<option value="${k.id}" data-dag="${k.dag}" ${p?.klassId === k.id ? 'selected' : ''}>${esc(dag(k.dag)?.kort)} · ${esc(klassKort(k))}${k.bedomning ? ` · ${esc(k.bedomning)}` : ''}</option>`).join('')}
+      </select>` : ''}
       <label class="f">Klass</label><input type="text" name="klass" value="${esc(p?.klass)}" data-forslag="${esc(nastaKlass(s, p?.dag || dagDefault || dagar[0]))}" placeholder="T.ex. Klass 1">
-      <p class="hint" style="margin:6px 0 0">Ingen tid, bara turordning. Passen sorteras efter klassens nummer: Klass 1, Klass 2, Klass 3 … Du kan skriva mer efter numret, som "Klass 3 · 1,10 m".</p>
+      <p class="hint" style="margin:6px 0 0">Ingen tid, bara turordning. Passen sorteras efter klassens nummer: Klass 1, Klass 2, Klass 3 … ${(state.klasser || []).length ? 'Välj ur listan så fylls texten i och passet kopplas till klassen.' : 'Lägger du in klasserna under Klasser kan du välja dem här i stället.'}</p>
     </div>
     <label class="f">Personer <span style="font-weight:400">(klicka för att välja)</span></label>${personPick(p?.personer || [])}
     <button type="button" class="btn small ghost" style="margin-top:6px" onclick="dlgPassNyPerson()">＋ Ny person</button>
@@ -1075,7 +1201,9 @@ function dlgPass(oid, sid, pid, dagDefault) {
       const klass = klassLage ? f.klass.value.trim() : '';
       if (klassLage && !klass) { alert('Skriv vilken klass passet gäller, t.ex. Klass 1.'); return false; }
       if (start && slut && slut <= start) { alert('Sluttiden måste vara efter starttiden.'); return false; }
+      const klassId = klassLage && f.klassval && f.klassval.value ? f.klassval.value : undefined;
       const d = { dag: f.dag.value, start, slut, klass, personer: checked(f, 'personer'), anteckning: f.anteckning.value.trim() };
+      if (klassId) d.klassId = klassId; else if (p) delete p.klassId;
       if (p) {
         const andr = [];
         if (d.dag !== p.dag || d.start !== (p.start || '') || d.slut !== (p.slut || '') || d.klass !== (p.klass || '')) andr.push(`flyttade passet ${passText(p)} till ${passText(d)}`);
@@ -1091,12 +1219,17 @@ function dlgPass(oid, sid, pid, dagDefault) {
   dlg._pass = { oid, sid, pid, dagDefault };
   passLage(dlg.querySelector('form'));
 }
+function passValdKlass(f) {
+  const k = klassById(f.klassval.value); if (!k) return;
+  f.klass.value = klassKort(k);
+  const opt = f.dag.querySelector(`option[value=${k.dag}]`); if (opt) f.dag.value = k.dag;
+}
 function passLage(f) {
   const klass = f.lage.value === 'klass';
   f.querySelector('.lage-tid').style.display = klass ? 'none' : '';
   f.querySelector('.lage-klass').style.display = klass ? '' : 'none';
   for (const r of f.querySelectorAll('input[name=lage]')) r.parentElement.classList.toggle('on', r.checked);
-  if (klass && !f.klass.value) f.klass.value = f.klass.dataset.forslag || 'Klass 1';
+  if (klass && !f.klass.value) { if (f.klassval && f.klassval.value) passValdKlass(f); else f.klass.value = f.klass.dataset.forslag || 'Klass 1'; }
   if (klass) { f.klass.focus(); f.klass.select(); }
 }
 function dlgPassNyPerson() {
