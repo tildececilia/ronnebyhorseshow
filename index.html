@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tävlingssektionen</title>
+<style>
+  :root {
+    /* Ronneby Ryttarförening: loggans blå (#0047b5), svart och vitt, gult ur rrf.nu som accent */
+    --bg: #f3f5f9;
+    --bg2: #e7ebf3;
+    --card: #ffffff;
+    --border: #d4dae6;
+    --text: #141a2b;
+    --muted: #68718a;
+    --accent: #0047b5;
+    --accent-soft: rgba(0, 71, 181, .10);
+    --navy: #0a1836;
+    --navy2: #122554;
+    --yellow: #f0dc3c;
+    --green: #3f7d4e;
+    --green-soft: rgba(63, 125, 78, .12);
+    --warn: #c4871b;
+    --warn-soft: rgba(196, 135, 27, .14);
+    --danger: #b3382e;
+    --radius: 10px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.45; }
+  button { font: inherit; cursor: pointer; }
+  input, select, textarea { font: inherit; color: inherit; }
+  a { color: var(--accent); }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  @media (max-width: 800px) { .app { grid-template-columns: 1fr; } .side { position: static !important; height: auto !important; } }
+
+  .side { background: var(--navy); color: #fff; padding: 20px 14px; position: sticky; top: 0; height: 100vh; overflow: auto; }
+  .brand { display: grid; grid-template-columns: 54px 1fr; gap: 12px; align-items: center; margin: 2px 4px 16px; }
+  .brand img { width: 54px; height: 54px; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+  .brand .t { font-weight: 700; font-size: 16px; line-height: 1.15; letter-spacing: .2px; }
+  .brand .t small { display: block; font-weight: 500; color: var(--yellow); font-size: 12px; margin-top: 3px; letter-spacing: .04em; text-transform: uppercase; }
+  .brand .t .dagar { display: block; font-weight: 400; color: rgba(255,255,255,.55); font-size: 11px; margin-top: 3px; text-transform: none; letter-spacing: 0; }
+  .nav button { display: flex; width: 100%; text-align: left; background: none; border: 0; padding: 9px 10px; border-radius: 8px; color: rgba(255,255,255,.85); gap: 8px; align-items: center; }
+  .nav button:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .nav button.active { background: rgba(255,255,255,.16); color: #fff; font-weight: 600; box-shadow: inset 3px 0 0 var(--yellow); }
+  .nav .count { margin-left: auto; color: rgba(255,255,255,.5); font-size: 12px; }
+  .nav h4 { margin: 18px 10px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.5); font-weight: 600; }
+  .nav .sub button { padding-left: 22px; font-size: 14px; }
+  .nav button.laggtill { color: var(--yellow); font-weight: 600; margin-top: 6px; font-size: 14px; }
+  .nav button.laggtill:hover { background: rgba(240,220,60,.12); }
+  .nav .plus { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--yellow); align-items: center; justify-content: center; font-size: 15px; line-height: 1; }
+  .printhead { display: none; }
+
+  .main { padding: 28px 36px 60px; max-width: 1200px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+  .topbar h1 { margin: 0; font-size: 26px; }
+  .topbar h1::after { content: ''; display: block; width: 44px; height: 4px; background: var(--yellow); border-radius: 2px; margin-top: 6px; }
+  .topbar .sub { color: var(--muted); margin-top: 2px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn { border: 1px solid var(--border); background: var(--card); padding: 7px 13px; border-radius: 8px; color: var(--text); }
+  .btn:hover { background: var(--bg2); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(.95); background: var(--accent); }
+  .btn.danger { color: var(--danger); }
+  .btn.small { padding: 4px 9px; font-size: 13px; }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+  .btn.ghost:hover { background: rgba(0,0,0,.05); color: var(--text); }
+  .iconbtn { border: 0; background: transparent; color: var(--muted); padding: 2px 6px; border-radius: 6px; font-size: 14px; line-height: 1; }
+  .iconbtn:hover { background: rgba(0,0,0,.06); color: var(--text); }
+  .iconbtn.danger:hover { color: var(--danger); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .card.click { cursor: pointer; transition: border-color .1s, transform .1s; }
+  .card.click:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .card h3 { margin: 0 0 4px; font-size: 17px; }
+  .card .desc { color: var(--muted); font-size: 14px; min-height: 1.4em; }
+  .card .meta { display: flex; gap: 14px; margin-top: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .progress { height: 5px; background: var(--bg2); border-radius: 3px; margin-top: 12px; overflow: hidden; }
+  .progress i { display: block; height: 100%; background: var(--green); }
+
+  .section-head { display: flex; align-items: baseline; gap: 12px; margin: 26px 0 10px; }
+  .section-head:first-child { margin-top: 0; }
+  .section-head h2 { margin: 0; font-size: 15px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+  .section-head .line { flex: 1; height: 1px; background: var(--border); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--bg2); font-size: 13px; border: 1px solid transparent; }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .chip.pick { cursor: pointer; }
+  .chip.pick:hover { border-color: var(--border); }
+  .chip .x { cursor: pointer; opacity: .6; } .chip .x:hover { opacity: 1; }
+  .avatar { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 11px; align-items: center; justify-content: center; flex: none; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 1000px) { .two { grid-template-columns: 1fr; } }
+  .block { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px; }
+  .block > h2 { margin: 0 0 12px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .block > h2 .right { margin-left: auto; display: flex; gap: 6px; }
+  .empty { color: var(--muted); font-style: italic; padding: 6px 0; font-size: 14px; }
+
+  .task { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid var(--border); }
+  .task:first-of-type { border-top: 0; }
+  .task input[type=checkbox] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--green); }
+  .task .t { }
+  .task.done .t .txt { text-decoration: line-through; color: var(--muted); }
+  .task .txt { cursor: pointer; border-radius: 4px; margin: -2px -4px; padding: 2px 4px; }
+  .task .txt:hover { background: var(--accent-soft); }
+  .task .note { font-size: 13px; color: var(--muted); white-space: pre-wrap; margin: 4px 0 2px; padding-left: 8px; border-left: 2px solid var(--border); cursor: pointer; }
+  .task .who { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .task .who select { border: 0; background: transparent; color: var(--muted); padding: 0; font-size: 13px; cursor: pointer; }
+  .task .who select:hover { color: var(--text); }
+  .task .ops { display: flex; gap: 2px; opacity: .25; transition: opacity .1s; }
+  .task:hover .ops { opacity: 1; }
+  .addrow { display: flex; gap: 8px; margin-top: 10px; }
+  .addrow input { flex: 1; }
+
+  input[type=text], input[type=time], input[type=tel], textarea, select { border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; background: #fff; width: 100%; }
+  textarea { resize: vertical; min-height: 70px; }
+  label.f { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  label.f:first-child { margin-top: 0; }
+  .daypick { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  dialog { border: 1px solid var(--border); border-radius: 14px; padding: 0; width: min(560px, 94vw); box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+  dialog.stor { width: min(960px, 96vw); max-height: 94vh; }
+  dialog.stor form { display: flex; flex-direction: column; max-height: 94vh; }
+  dialog.stor .vax { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  dialog.stor textarea.stor { flex: 1; min-height: 55vh; font-size: 15px; line-height: 1.5; padding: 12px 14px; }
+  .task .note ul { margin: 2px 0; padding-left: 18px; }
+  .task .note li { margin: 1px 0; }
+  dialog::backdrop { background: rgba(40,30,20,.35); }
+  dialog form { padding: 22px 24px; }
+  dialog h2 { margin: 0 0 14px; font-size: 19px; }
+  dialog .foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 20px; }
+  dialog .foot .r { display: flex; gap: 8px; margin-left: auto; }
+
+  .schema { border: 1px solid var(--border); border-radius: var(--radius); margin-top: 12px; overflow: hidden; }
+  .schema .head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg2); }
+  .schema .head h3 { margin: 0; font-size: 15px; }
+  .schema .head .days { color: var(--muted); font-size: 13px; }
+  .schema .head .right { margin-left: auto; display: flex; gap: 4px; }
+  .daycols { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .daycol { border-right: 1px solid var(--border); padding: 10px 12px; min-height: 90px; }
+  .daycol:last-child { border-right: 0; }
+  .daycol h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .pass { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; margin-bottom: 6px; font-size: 13px; cursor: pointer; position: relative; }
+  .pass:hover { border-color: var(--accent); }
+  .pass .time { font-weight: 600; }
+  .pass .ppl { color: var(--text); margin-top: 2px; }
+  .pass .ppl.none { color: var(--warn); }
+  .pass .note { color: var(--muted); margin-top: 2px; }
+  .pass.conflict { border-color: var(--warn); background: var(--warn-soft); }
+  .pass .omr { color: var(--muted); font-size: 12px; }
+  .pass .dup { color: var(--warn); font-size: 12px; margin-top: 2px; }
+  .addpass { width: 100%; border: 1px dashed var(--border); background: transparent; color: var(--muted); border-radius: 8px; padding: 6px; font-size: 13px; }
+  .addpass:hover { border-color: var(--accent); color: var(--accent); }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; flex-wrap: wrap; }
+  .tabs button { border: 0; background: transparent; padding: 9px 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--muted); }
+  .tabs button.active { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  tr:hover td { background: rgba(0,0,0,.015); }
+  td .ops { opacity: .3; } tr:hover td .ops { opacity: 1; }
+
+  .badge { display: inline-flex; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #d7263d; color: #fff; font-size: 12px; font-weight: 700; align-items: center; justify-content: center; line-height: 1; margin-left: 6px; }
+  .nav .badge { margin-left: auto; }
+  .nav .badge + .count { margin-left: 8px; }
+  .anslagknapp { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 22px; font-size: 16px; font-weight: 600; }
+  .anslagknapp:hover { border-color: var(--accent); }
+  .anslagknapp .sub { font-weight: 400; color: var(--muted); font-size: 14px; margin-left: 4px; }
+  .anslagknapp .badge { font-size: 13px; height: 22px; min-width: 22px; }
+  .anslagknapp .pil { margin-left: auto; color: var(--muted); }
+  .anslag { padding: 22px 24px; max-height: 94vh; overflow: auto; }
+  .anslag .ahead { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .anslag .ahead h2 { margin: 0; flex: 1; }
+  .anslag .nytt { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 20px; }
+  .anslag .nytt textarea { min-height: 90px; margin-top: 8px; }
+  .anslag .nytt .rad { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .inlagg { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; background: var(--card); }
+  .inlagg.ny { border-color: #d7263d; box-shadow: inset 3px 0 0 #d7263d; }
+  .inlagg .top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .inlagg .top b { font-size: 15px; }
+  .inlagg .top .tid { color: var(--muted); font-size: 13px; }
+  .inlagg .top .ops { margin-left: auto; opacity: .35; } .inlagg:hover .top .ops { opacity: 1; }
+  .inlagg h3 { margin: 4px 0 6px; font-size: 16px; }
+  .inlagg .text { white-space: pre-wrap; line-height: 1.5; }
+  .inlagg .text ul { margin: 2px 0; padding-left: 18px; }
+  .komm { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 14px; display: grid; grid-template-columns: 26px 1fr; gap: 10px; }
+  .komm .top { margin-bottom: 2px; }
+  .komm .text { white-space: pre-wrap; }
+  .komm.ny .text::before { content: 'Ny'; display: inline-block; background: #d7263d; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 8px; margin-right: 6px; vertical-align: 1px; }
+  .kommrad { display: flex; gap: 8px; margin-top: 12px; }
+  .kommrad input { flex: 1; }
+  .status { position: fixed; top: 0; left: 0; right: 0; z-index: 50; background: #d7263d; color: #fff; text-align: center; padding: 6px 12px; font-size: 13px; display: none; }
+  .status.show { display: block; }
+  .status.lokal { background: var(--warn); }
+  .laddar { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 40; color: var(--muted); font-size: 15px; gap: 10px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .vem { margin: 0 8px 14px; font-size: 13px; color: rgba(255,255,255,.6); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .vem b { color: #fff; }
+  .vem button { border: 0; background: none; color: var(--yellow); padding: 0; font-size: 13px; }
+  .logg { font-size: 13px; }
+  .logg .dag { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin: 12px 0 4px; }
+  .logg .dag:first-child { margin-top: 0; }
+  .logg .rad { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 5px 0; border-top: 1px solid var(--border); }
+  .logg .rad .tid { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .logg .rad .vemn { font-weight: 600; }
+  .logg .rad .var { color: var(--muted); }
+  .logg .rad .var a { color: var(--muted); }
+  .warnbox { background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 14px; }
+
+  @media print {
+    .printhead { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--navy); }
+    .printhead img { width: 44px; height: 44px; }
+    .printhead b { font-size: 16px; } .printhead span { color: var(--muted); font-size: 13px; }
+    .side, .topbar .actions, .tabs, .addpass, .iconbtn, .btn { display: none !important; }
+    .app { display: block; }
+    .main { padding: 0; max-width: none; }
+    body { background: #fff; }
+    .pass { cursor: default; }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><img src="data:image/webp;base64,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" alt="Ronneby Ryttarförening"><div class="t"><span id="brandNamn">Ronneby Horse Show</span><small id="brandVecka">Vecka 7 · Tävlingssektionen</small><span class="dagar" id="brandSub"></span></div></div>
+    <div class="vem" id="vemRad"></div>
+    <nav class="nav" id="nav"></nav>
+  </aside>
+  <main class="main"><div class="printhead"><img src="data:image/webp;base64,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" alt=""><div><b id="printNamn">Ronneby Horse Show</b><br><span>Ronneby Ryttarförening · Tävlingssektionen</span></div></div><div id="main"></div></main>
+</div>
+<div class="status" id="status"></div>
+<div class="laddar" id="laddar">Hämtar tävlingssektionen…</div>
+<dialog id="dlg"></dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ Grunddata ur Excel-filen ============ */
+const DAGAR_ALLA = [
+  { id: 'man', label: 'Måndag', kort: 'Mån' },
+  { id: 'tis', label: 'Tisdag', kort: 'Tis' },
+  { id: 'ons', label: 'Onsdag', kort: 'Ons' },
+  { id: 'tor', label: 'Torsdag', kort: 'Tor' },
+  { id: 'fre', label: 'Fredag', kort: 'Fre' },
+  { id: 'lor', label: 'Lördag', kort: 'Lör' },
+  { id: 'son', label: 'Söndag', kort: 'Sön' },
+];
+
+function uid() { return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3); }
+
+function seedData() {
+  const P = {};
+  const person = (namn, anteckning = '') => { const id = uid(); P[namn] = id; return { id, namn, telefon: '', anteckning }; };
+  const personer = [
+    person('Tilda'), person('Emmy'), person('Pian'), person('Micke M'),
+    person('Camilla', 'Frågetecken i Excel-filen, inte bekräftad'), person('Stefan'),
+  ];
+  const sekt = (namn) => ({ id: uid(), namn });
+  const S = {
+    bana: sekt('Tävlingsbanan'), fram: sekt('Framhoppning'), teknik: sekt('Teknik'),
+    upp: sekt('Uppstallade'), park: sekt('Parkering'), domar: sekt('Domartornet'), mat: sekt('Mat'),
+  };
+  const upp = (texter) => texter.map(text => ({ id: uid(), text, ansvarig: null, klar: false }));
+  const omr = (sektion, namn, ansvariga, uppgifter, beskrivning = '') =>
+    ({ id: uid(), sektionId: sektion.id, namn, beskrivning, ansvariga: ansvariga.map(n => P[n]), uppgifter: upp(uppgifter), scheman: [] });
+
+  const omraden = [
+    omr(S.bana, 'Banan', ['Tilda', 'Emmy'], [
+      'Schemalägga personal på banan',
+      'Schemalägga personal för ombyggnationer',
+      'Schemalägga banbyggnad kvällen innan',
+      'Schemalägga personal för att plocka undan på söndag kväll',
+      'Banchef för olika dagar',
+      'Hinderpark',
+    ]),
+    omr(S.fram, 'Framhoppning', ['Pian'], [
+      'Schemalägga personal som ska stå på framhoppningen respektive dag',
+      'Schemalägga personal som ska plocka fram och ta undan',
+      'Bajsplockning och ställa bort bommar inför harvning',
+      'Flytta runt hindren mellan dagarna/klasserna för att undvika att underlaget på ett visst ställe blir förstört',
+      'Se över hinderpark/staket',
+    ]),
+    omr(S.teknik, 'Teknik', ['Micke M'], [
+      'Ställa fram och koppla in skärmar på framhoppning och på banan',
+      'Se över högtalare så allt fungerar',
+    ]),
+    omr(S.upp, 'Tältstallar', ['Camilla'], [
+      'Schemalägga pass',
+      'Planera hur de ska stå, ihop med de som planerar lastbilsparkeringen',
+      'Ta emot tältstallarna för uppbyggnad',
+      'Plocka ihop tältstallarna',
+      'Fixa spån',
+      'Fördela spånet',
+      'Hö',
+      'Skura boxarna i fasta stallet',
+    ]),
+    omr(S.park, 'Parkering', ['Stefan'], [
+      'Planera parkering för lastbilar som stannar över hela helgen',
+      'Planera besöksparkering',
+      'Planera parkering för dagtävlande',
+      'Schemalägga personal hela helgen',
+      'Rita upp i marken vart alla ska stå',
+    ]),
+    omr(S.domar, 'Domartorn', [], []),
+    omr(S.mat, 'Kiosk', [], [
+      'Planera vad som ska säljas, vilka maträtter',
+      'Planera vad som ska inhandlas',
+      'Inhandla',
+      'Schemalägga personal i kiosken hela helgen',
+      'Städ före och efter, schemalägg',
+    ]),
+    omr(S.mat, 'Frukostbuffé', [], [
+      'Planera vad som behövs i matväg och i materielväg',
+      'Fixa sponsorer',
+      'Schemalägga personal som plockar fram och plockar undan och är värdar',
+      'Handla och hämta det som behövs handlas',
+      'Fixa skyltar och sätta upp',
+    ]),
+    omr(S.mat, 'Pizzabuffé', [], [
+      'Fixa så det står i Equipe och på sociala medier',
+      'Planera med pizzerian i förväg',
+      'Schemalägga personal som plockar fram och plockar undan och är värdar',
+      'Fixa skyltar och sätta upp',
+      'Fixa så all materiel finns och så det är i ordningställt i cafeterian',
+      'Ev se till så det finns läsk i kiosken att sälja',
+      'QR-kod för Swish',
+    ]),
+    omr(S.mat, 'Grill', [], [
+      'Planera vad som behövs i form av grill, tält, sittplatser och materiel',
+      'Planera vad som ska säljas och behövs inhandlas samt hur mycket',
+      'Schemalägga personal som ska stå och sälja och grilla',
+      'QR-kod för Swish',
+      'Schemalägga personal som plockar fram och undan',
+      'Ev fixa sponsorer för mat',
+      'Handla och hämta',
+    ]),
+    omr(S.mat, 'Extern catering', [], [
+      'Planera med cateringfirma vad som behövs och vad vi kan ha för utbyte',
+    ]),
+  ];
+  return {
+    version: 1,
+    tavling: { namn: 'Ronneby Horse Show', vecka: 'Vecka 7', dagar: ['ons', 'tor', 'fre', 'lor', 'son'] },
+    personer, sektioner: Object.values(S), omraden,
+  };
+}
+
+/* ============ Lagring ============
+   Allt ligger i Supabase, tabellen "poster" (samling, id, data). Varje person, kategori,
+   område, loggrad och anslag är en rad. Vid sparning skickas bara raderna som ändrats,
+   och ändringar från andra kommer in direkt via realtime. localStorage är bara en cache
+   så sidan ritas snabbt. Saknas SUPABASE_URL/KEY körs appen lokalt som förut. */
+const SUPABASE_URL = 'https://efjrohtcdquntbiuoipt.supabase.co';   // t.ex. https://abcdefghijkl.supabase.co  (Project Settings → API → Project URL)
+const SUPABASE_KEY = 'sb_publishable_IE5iCze6HWeRWRKj_nnijA_c0hYbsgV';   // anon / publishable key från samma sida (är tänkt att ligga i webbsidor)
+const sb = (SUPABASE_URL && SUPABASE_KEY && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+const KEY = 'tavlingssektionen.v1';
+let state = loadCache();
+function loadCache() {
+  try { const raw = localStorage.getItem(KEY); if (raw) { const d = JSON.parse(raw); if (d.tavling.namn === 'Tävlingen') d.tavling.namn = 'Ronneby Horse Show'; if (d.tavling.vecka == null) d.tavling.vecka = 'Vecka 7'; return d; } } catch (e) { console.warn(e); }
+  return seedData();
+}
+function status(text, lokal) { const el = document.getElementById('status'); el.textContent = text || ''; el.classList.toggle('show', !!text); el.classList.toggle('lokal', !!lokal); }
+
+// state <-> rader i tabellen
+function tillRader(st) {
+  const r = [];
+  r.push({ samling: 'installningar', id: 'tavling', data: st.tavling });
+  st.personer.forEach(x => r.push({ samling: 'personer', id: x.id, data: x }));
+  st.sektioner.forEach((x, i) => { x.ordning = i; r.push({ samling: 'sektioner', id: x.id, data: x }); });
+  st.omraden.forEach((x, i) => { x.ordning = i; r.push({ samling: 'omraden', id: x.id, data: x }); });
+  (st.logg || []).forEach(x => r.push({ samling: 'logg', id: x.id, data: x }));
+  (st.anslag || []).forEach(x => r.push({ samling: 'anslag', id: x.id, data: x }));
+  return r;
+}
+function franRader(rader) {
+  const g = {}; for (const r of rader) (g[r.samling] ||= []).push(r.data);
+  const ordn = (a, b) => (a.ordning ?? 0) - (b.ordning ?? 0);
+  const tid = (a, b) => (a.tid || '').localeCompare(b.tid || '');
+  return {
+    version: 1,
+    tavling: g.installningar?.[0] || seedData().tavling,
+    personer: g.personer || [], sektioner: (g.sektioner || []).sort(ordn), omraden: (g.omraden || []).sort(ordn),
+    logg: (g.logg || []).sort(tid), anslag: (g.anslag || []).sort(tid),
+  };
+}
+// Slå ihop nytt innehåll i befintliga objekt så att öppna dialoger behåller sina referenser.
+function mergeInPlace(mal, kalla) {
+  if (Array.isArray(kalla)) {
+    if (!Array.isArray(mal)) return kalla;
+    const medId = kalla.every(x => x && typeof x === 'object' && x.id != null);
+    if (!medId) { mal.length = 0; mal.push(...kalla); return mal; }
+    const gamla = new Map(mal.filter(x => x && x.id != null).map(x => [x.id, x]));
+    const nya = kalla.map(x => { const g = gamla.get(x.id); return g ? mergeInPlace(g, x) : x; });
+    mal.length = 0; mal.push(...nya); return mal;
+  }
+  if (kalla && typeof kalla === 'object') {
+    if (!mal || typeof mal !== 'object' || Array.isArray(mal)) return kalla;
+    for (const k of Object.keys(mal)) if (!(k in kalla)) delete mal[k];
+    for (const k of Object.keys(kalla)) mal[k] = mergeInPlace(mal[k], kalla[k]);
+    return mal;
+  }
+  return kalla;
+}
+
+let synkad = {};   // samling/id -> JSON-sträng som servern senast bekräftat
+const nyckel = r => r.samling + '/' + r.id;
+let sparKo = Promise.resolve();
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+  if (!sb) { clearTimeout(saveT); saveT = setTimeout(() => toast('Sparat (bara på den här datorn)'), 150); return; }
+  const rader = tillRader(state); const nu = {}; const upserts = [];
+  for (const r of rader) { const k = nyckel(r); const j = JSON.stringify(r.data); nu[k] = j; if (synkad[k] !== j) upserts.push({ ...r, data: JSON.parse(j) }); }
+  const borttagna = Object.keys(synkad).filter(k => !(k in nu)).map(k => { const i = k.indexOf('/'); return { samling: k.slice(0, i), id: k.slice(i + 1) }; });
+  if (!upserts.length && !borttagna.length) return;
+  const fore = synkad; synkad = nu;
+  sparKo = sparKo.then(async () => {
+    try {
+      if (upserts.length) { const { error } = await sb.from('poster').upsert(upserts.map(r => ({ ...r, uppdaterad: new Date().toISOString() }))); if (error) throw error; }
+      for (const d of borttagna) { const { error } = await sb.from('poster').delete().match(d); if (error) throw error; }
+      status(''); toast('Sparat');
+    } catch (e) {
+      console.error(e); for (const k of Object.keys(nu)) if (fore[k] !== undefined && fore[k] !== nu[k]) synkad[k] = fore[k];
+      for (const d of borttagna) synkad[nyckel(d)] = fore[nyckel(d)];
+      status('Kunde inte spara till servern. Kontrollera internet; ändringen försöks igen vid nästa sparning.');
+    }
+  });
+}
+let saveT;
+async function hamtaAllt() {
+  const { data, error } = await sb.from('poster').select('samling,id,data');
+  if (error) throw error;
+  return data;
+}
+function tillampa(rader) {
+  synkad = {}; for (const r of rader) synkad[nyckel(r)] = JSON.stringify(r.data);
+  mergeInPlace(state, franRader(rader));
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+}
+let serverRader = new Map();
+function lyssna() {
+  sb.channel('poster-andringar').on('postgres_changes', { event: '*', schema: 'public', table: 'poster' }, payload => {
+    const r = payload.eventType === 'DELETE' ? payload.old : payload.new;
+    if (!r || !r.samling) return;
+    const k = r.samling + '/' + r.id;
+    if (payload.eventType === 'DELETE') { if (!serverRader.has(k)) return; serverRader.delete(k); }
+    else { const j = JSON.stringify(r.data); if (synkad[k] === j) { serverRader.set(k, r); return; } serverRader.set(k, { samling: r.samling, id: r.id, data: r.data }); }
+    tillampa([...serverRader.values()]);
+    render();
+  }).subscribe(st => { if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') status('Tappade kontakten med servern. Ladda om sidan.'); });
+}
+async function starta() {
+  const laddar = document.getElementById('laddar');
+  if (!sb) {
+    status(window.supabase ? 'Lokalt läge: ingen databas är inställd, allt sparas bara på den här datorn.' : 'Kunde inte ladda databaskopplingen (ingen internet?). Allt sparas bara på den här datorn.', true);
+    laddar.remove(); render(); if (!vem) dlgVem(true); return;
+  }
+  try {
+    let rader = await hamtaAllt();
+    if (!rader.length) {
+      // Första gången: fyll databasen med det som finns på den här datorn (eller Excel-grunddatat).
+      rader = tillRader(state).map(r => ({ ...r, data: JSON.parse(JSON.stringify(r.data)) }));
+      const { error } = await sb.from('poster').upsert(rader.map(r => ({ ...r, uppdaterad: new Date().toISOString() }))); if (error) throw error;
+    }
+    serverRader = new Map(rader.map(r => [nyckel(r), r]));
+    tillampa(rader);
+    lyssna();
+    laddar.remove(); render(); if (!vem) dlgVem(true);
+  } catch (e) {
+    console.error(e);
+    laddar.innerHTML = `<div style="text-align:center;max-width:420px"><b>Kunde inte hämta från servern.</b><div class="hint" style="margin-top:6px">${esc(e.message || e)}</div><button class="btn primary" style="margin-top:14px" onclick="location.reload()">Försök igen</button></div>`;
+  }
+}
+const VEM_KEY = 'tavlingssektionen.vem';
+let vem = localStorage.getItem(VEM_KEY) || '';
+function sattVem(namn) { vem = (namn || '').trim(); localStorage.setItem(VEM_KEY, vem); renderNav(); }
+function logga(omradeId, text) {
+  state.logg ||= [];
+  const o = omradeId ? omrById(omradeId) : null;
+  state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: o ? o.sektionId : null, omradeId: omradeId || null, omrade: o ? o.namn : '', text });
+  if (state.logg.length > 5000) state.logg.splice(0, state.logg.length - 5000);
+}
+function toast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 1400);
+}
+
+/* ============ Hjälpare ============ */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const personById = id => state.personer.find(p => p.id === id);
+const namn = id => personById(id)?.namn || 'Okänd';
+const initialer = n => n.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+const dag = id => DAGAR_ALLA.find(d => d.id === id);
+const dagarValda = () => DAGAR_ALLA.filter(d => state.tavling.dagar.includes(d.id));
+const omrById = id => state.omraden.find(o => o.id === id);
+const sektById = id => state.sektioner.find(s => s.id === id);
+const omradenI = sid => state.omraden.filter(o => o.sektionId === sid);
+const sortDag = (a, b) => DAGAR_ALLA.findIndex(d => d.id === a) - DAGAR_ALLA.findIndex(d => d.id === b);
+function allaPass() {
+  const ut = [];
+  for (const o of state.omraden) for (const s of o.scheman) for (const p of s.pass) ut.push({ ...p, omrade: o, schema: s });
+  return ut;
+}
+function overlappar(a, b) {
+  if (a.dag !== b.dag) return false;
+  if (a.klass || b.klass) return !!(a.klass && b.klass) && klassNr(a.klass) === klassNr(b.klass) && a.klass.trim().toLowerCase() === b.klass.trim().toLowerCase();
+  if (!a.start || !a.slut || !b.start || !b.slut) return false;
+  return a.start < b.slut && b.start < a.slut;
+}
+// Klass-pass har ingen tid utan en turordning: "Klass 1", "Klass 2" … Sorteras på första talet i texten.
+function klassNr(k) { const m = String(k || '').match(/\d+(?:[.,]\d+)?/); return m ? parseFloat(m[0].replace(',', '.')) : 9999; }
+function passTid(p) { return p.klass ? p.klass : (p.start && p.slut ? `${p.start}–${p.slut}` : (p.start || 'Hela dagen')); }
+function passOrdning(a, b) {
+  // Klass-pass först i klassordning, sedan tidspass efter starttid, sist pass utan tid.
+  if (a.klass && b.klass) return klassNr(a.klass) - klassNr(b.klass) || a.klass.localeCompare(b.klass, 'sv');
+  if (a.klass) return -1; if (b.klass) return 1;
+  if (a.start && b.start) return a.start.localeCompare(b.start);
+  if (a.start) return -1; if (b.start) return 1; return 0;
+}
+function nastaKlass(sc, dagId) {
+  const n = sc.pass.filter(p => p.dag === dagId && p.klass).map(p => klassNr(p.klass)).filter(x => x < 9999);
+  return 'Klass ' + (n.length ? Math.max(...n) + 1 : 1);
+}
+function krockar(pass) {
+  const alla = allaPass().filter(p => p.id !== pass.id && overlappar(p, pass));
+  const ut = new Set();
+  for (const p of alla) for (const pid of p.personer) if (pass.personer.includes(pid)) ut.add(pid);
+  return [...ut];
+}
+function passText(p) { return `${dag(p.dag)?.label || p.dag} ${p.klass ? p.klass : (p.start && p.slut ? p.start + '–' + p.slut : 'hela dagen')}`; }
+function namnLista(ids) { return ids.length ? ids.map(namn).join(', ') : 'ingen'; }
+const loggVisaAlla = {};
+function loggLista(poster, nyckel, visaOmrade) {
+  if (!poster.length) return '<div class="empty">Inga ändringar loggade ännu.</div>';
+  poster = [...poster].sort((a, b) => b.tid.localeCompare(a.tid));
+  const alla = loggVisaAlla[nyckel]; const max = 15;
+  const visa = alla ? poster : poster.slice(0, max);
+  let h = '<div class="logg">'; let senasteDag = '';
+  for (const r of visa) {
+    const d = new Date(r.tid); const dagStr = d.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' });
+    if (dagStr !== senasteDag) { h += `<div class="dag">${esc(dagStr)}</div>`; senasteDag = dagStr; }
+    const var_ = visaOmrade && r.omrade ? `<span class="var">${r.omradeId && omrById(r.omradeId) ? `<a href="#" onclick="event.preventDefault();go('omrade',{id:'${r.omradeId}'})">${esc(r.omrade)}</a>` : esc(r.omrade)} · </span>` : '';
+    h += `<div class="rad"><span class="tid">${d.toTimeString().slice(0, 5)}</span><span>${var_}<span class="vemn">${esc(r.vem)}</span> ${esc(r.text)}</span></div>`;
+  }
+  h += '</div>';
+  if (poster.length > max) h += `<button class="btn small ghost" style="margin-top:8px" onclick="loggVisaAlla['${nyckel}']=${alla ? 'false' : 'true'};render()">${alla ? 'Visa färre' : `Visa alla ${poster.length}`}</button>`;
+  return h;
+}
+function avatarChip(pid, removable) {
+  const n = namn(pid);
+  return `<span class="chip"><span class="avatar">${esc(initialer(n))}</span>${esc(n)}${removable ? `<span class="x" data-remove="${pid}" title="Ta bort">✕</span>` : ''}</span>`;
+}
+
+/* ============ Routing ============ */
+let route = { view: 'oversikt' };
+function go(view, params = {}) { route = { view, ...params }; render(); window.scrollTo(0, 0); }
+
+/* ============ Navigering ============ */
+function renderNav() {
+  const r = route;
+  const act = (v, extra) => (r.view === v && (!extra || Object.entries(extra).every(([k, val]) => r[k] === val))) ? 'active' : '';
+  let h = `
+    <button class="${act('oversikt')}" onclick="go('oversikt')">🏠 Översikt ${anslagBadge()}</button>
+    <button class="${act('schema')}" onclick="go('schema')">📅 Schema <span class="count">${allaPass().length}</span></button>
+    <button class="${act('personer')}" onclick="go('personer')">👥 Personer <span class="count">${state.personer.length}</span></button>
+    <h4>Kategorier och områden</h4>`;
+  for (const s of state.sektioner) {
+    const os = omradenI(s.id);
+    h += `<div class="sub">`;
+    h += `<button class="${act('sektion', { id: s.id })}" onclick="go('sektion',{id:'${s.id}'})" style="padding-left:10px;font-weight:600">${esc(s.namn)}</button>`;
+    for (const o of os) h += `<button class="${act('omrade', { id: o.id })}" onclick="go('omrade',{id:'${o.id}'})">${esc(o.namn)}</button>`;
+    h += `</div>`;
+  }
+  h += `<button class="laggtill" onclick="dlgSektion()" title="Ny kategori"><span class="plus">+</span> Lägg till kategori</button>`;
+  h += `<h4>Mer</h4><button class="${act('installningar')}" onclick="go('installningar')">⚙️ Inställningar</button>`;
+  document.getElementById('nav').innerHTML = h;
+  document.getElementById('brandNamn').textContent = state.tavling.namn;
+  document.getElementById('brandVecka').textContent = state.tavling.vecka || '';
+  document.getElementById('printNamn').textContent = state.tavling.namn + (state.tavling.vecka ? ' · ' + state.tavling.vecka : '');
+  document.getElementById('brandSub').textContent = dagarValda().map(d => d.kort).join(', ');
+  document.title = state.tavling.namn + ' · Tävlingssektionen';
+  document.getElementById('vemRad').innerHTML = vem ? `Du är <b>${esc(vem)}</b> <button onclick="dlgVem()">byt</button>` : `<button onclick="dlgVem()">Vem är du? Välj namn</button>`;
+}
+
+/* ============ Vyer ============ */
+function render() {
+  renderNav();
+  const m = document.getElementById('main');
+  const v = route.view;
+  if (v === 'oversikt') m.innerHTML = vyOversikt();
+  else if (v === 'sektion') m.innerHTML = vySektion(route.id);
+  else if (v === 'omrade') m.innerHTML = vyOmrade(route.id);
+  else if (v === 'schema') m.innerHTML = vySchema();
+  else if (v === 'personer') m.innerHTML = vyPersoner();
+  else if (v === 'installningar') m.innerHTML = vyInstallningar();
+}
+
+function omradeKort(o) {
+  const klar = o.uppgifter.filter(u => u.klar).length, tot = o.uppgifter.length;
+  const pass = o.scheman.reduce((n, s) => n + s.pass.length, 0);
+  return `<div class="card click" onclick="go('omrade',{id:'${o.id}'})">
+    <h3>${esc(o.namn)}</h3>
+    <div class="desc">${esc(o.beskrivning) || '<span style="opacity:.6">Ingen beskrivning</span>'}</div>
+    <div class="chips" style="margin-top:10px">${o.ansvariga.length ? o.ansvariga.map(p => avatarChip(p)).join('') : '<span class="hint">Ingen ansvarig</span>'}</div>
+    <div class="meta"><span>✓ ${klar} / ${tot} uppgifter</span><span>📅 ${o.scheman.length} schema, ${pass} pass</span></div>
+    ${tot ? `<div class="progress"><i style="width:${Math.round(klar / tot * 100)}%"></i></div>` : ''}
+  </div>`;
+}
+
+function vyOversikt() {
+  const totU = state.omraden.reduce((n, o) => n + o.uppgifter.length, 0);
+  const klarU = state.omraden.reduce((n, o) => n + o.uppgifter.filter(u => u.klar).length, 0);
+  const utanAnsv = state.omraden.filter(o => !o.ansvariga.length).length;
+  let h = `<div class="topbar"><div><h1>${esc(state.tavling.namn)}${state.tavling.vecka ? ` <span style="font-weight:400;color:var(--muted);font-size:20px">${esc(state.tavling.vecka)}</span>` : ''}</h1>
+    <div class="sub">${state.sektioner.length} kategorier · ${state.omraden.length} områden · ${klarU} av ${totU} uppgifter klara${utanAnsv ? ` · ${utanAnsv} områden utan ansvarig` : ''}</div></div>
+    <div class="actions"><button class="btn" onclick="dlgSektion()">+ Ny kategori</button><button class="btn primary" onclick="dlgOmrade()">+ Nytt område</button></div></div>`;
+  const nya = anslagNya(), antal = (state.anslag || []).length;
+  h += `<button class="anslagknapp" onclick="dlgAnslag()">📌 Anslagstavla${nya ? `<span class="badge">${nya}</span>` : ''}<span class="sub">${antal ? `${antal} inlägg` : 'Inga inlägg ännu'}${nya ? ` · ${nya} ${nya === 1 ? 'nytt du inte sett' : 'nya du inte sett'}` : ''}</span><span class="pil">Öppna ›</span></button>`;
+  for (const s of state.sektioner) {
+    const os = omradenI(s.id);
+    h += `<div class="section-head"><h2>${esc(s.namn)}</h2><div class="line"></div>
+      <button class="iconbtn" title="Byt namn" onclick="dlgSektion('${s.id}')">✎</button>
+      <button class="iconbtn" title="Nytt område i kategorin" onclick="dlgOmrade(null,'${s.id}')">+</button>
+      <button class="iconbtn danger" title="Ta bort kategori" onclick="taBortSektion('${s.id}')">🗑</button></div>`;
+    h += `<div class="grid">${os.map(omradeKort).join('') || '<div class="empty">Inga områden i den här kategorin ännu.</div>'}</div>`;
+  }
+  return h;
+}
+
+function vySektion(id) {
+  const s = sektById(id); if (!s) return go('oversikt');
+  const os = omradenI(id);
+  return `<div class="topbar"><div><h1>${esc(s.namn)}</h1><div class="sub">Kategori · ${os.length} områden</div></div>
+    <div class="actions"><button class="btn" onclick="dlgSektion('${s.id}')">Byt namn</button><button class="btn primary" onclick="dlgOmrade(null,'${s.id}')">+ Nytt område</button></div></div>
+    <div class="grid">${os.map(omradeKort).join('') || '<div class="empty">Inga områden ännu.</div>'}</div>
+    <div class="block" style="margin-top:24px"><h2>Ändringslogg <span class="hint" style="font-weight:400">allt som gjorts i kategorin, och av vem</span></h2>
+      ${loggLista((state.logg || []).filter(r => r.kategoriId === id), 'k' + id, true)}</div>`;
+}
+
+function vyOmrade(id) {
+  const o = omrById(id); if (!o) return go('oversikt');
+  const s = sektById(o.sektionId);
+  const klar = o.uppgifter.filter(u => u.klar).length;
+  let h = `<div class="topbar"><div>
+      <div class="hint" style="cursor:pointer" onclick="go('sektion',{id:'${s.id}'})">${esc(s.namn)} ›</div>
+      <h1>${esc(o.namn)}</h1>
+      <div class="sub">${esc(o.beskrivning) || '<span style="opacity:.7">Ingen beskrivning ännu. Klicka på Redigera för att skriva en.</span>'}</div></div>
+    <div class="actions"><button class="btn danger" onclick="taBortOmrade('${o.id}')">Ta bort</button><button class="btn" onclick="dlgOmrade('${o.id}')">Redigera</button></div></div>`;
+
+  h += `<div class="two"><div>
+    <div class="block"><h2>Ansvariga för området</h2>
+      <div class="chips" id="ansvChips">${o.ansvariga.map(p => avatarChip(p, true)).join('')}
+        <select onchange="laggTillAnsvarig('${o.id}', this.value)" style="width:auto;padding:3px 8px;font-size:13px;border-radius:999px">
+          <option value="">+ Lägg till person…</option>
+          ${state.personer.filter(p => !o.ansvariga.includes(p.id)).map(p => `<option value="${p.id}">${esc(p.namn)}</option>`).join('')}
+          <option value="__ny">＋ Ny person…</option>
+        </select></div>
+    </div>
+    <div class="block"><h2>Uppgifter <span class="hint" style="font-weight:400">${klar} av ${o.uppgifter.length} klara</span></h2>
+      ${o.uppgifter.map((u, i) => uppgiftRad(o, u, i)).join('') || '<div class="empty">Inga uppgifter ännu.</div>'}
+      <form class="addrow" onsubmit="event.preventDefault(); laggTillUppgift('${o.id}', this.txt.value); this.txt.value='';">
+        <input name="txt" type="text" placeholder="Ny uppgift…" required><button class="btn">Lägg till</button></form>
+    </div>
+  </div><div>
+    <div class="block"><h2>Scheman <span class="right"><button class="btn small primary" onclick="dlgSchema('${o.id}')">+ Nytt schema</button></span></h2>
+      <div class="hint">Ett schema har sina egna dagar. I varje dag lägger du pass med tid och personer.</div>
+      ${o.scheman.map(sc => schemaBlock(o, sc)).join('') || '<div class="empty" style="margin-top:8px">Inget schema ännu. Skapa ett och välj vilka dagar det gäller.</div>'}
+    </div>
+    <div class="block"><h2>Ändringslogg</h2>${loggLista((state.logg || []).filter(r => r.omradeId === o.id), 'o' + o.id, false)}</div>
+  </div></div>`;
+  return h;
+}
+
+/* ============ Anslagstavla ============ */
+const SETT_KEY = () => 'tavlingssektionen.sett.' + (vem || 'okand');
+function settTid() { try { return localStorage.getItem(SETT_KEY()) || ''; } catch { return ''; } }
+function arNy(x, sedan) { return x.vem !== (vem || 'Okänd') && x.tid > sedan; }
+function anslagNya() {
+  const t = settTid(); let n = 0;
+  for (const a of (state.anslag || [])) { if (arNy(a, t)) n++; for (const k of a.kommentarer) if (arNy(k, t)) n++; }
+  return n;
+}
+function anslagBadge() { const n = anslagNya(); return n ? `<span class="badge" title="${n} nya på anslagstavlan">${n}</span>` : ''; }
+function tidStr(iso) { const d = new Date(iso); return d.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + d.toTimeString().slice(0, 5); }
+let anslagSedan = '';
+function dlgAnslag() {
+  anslagSedan = settTid();
+  dlg.classList.add('stor');
+  dlg.innerHTML = `<div class="anslag"><div class="ahead"><h2>📌 Anslagstavla</h2><button class="btn" onclick="dlg.close()">Stäng</button></div><div id="anslagInner"></div></div>`;
+  renderAnslag();
+  dlg.showModal();
+  try { localStorage.setItem(SETT_KEY(), new Date().toISOString()); } catch {}
+  render();
+}
+function renderAnslag() {
+  const poster = [...(state.anslag || [])].sort((a, b) => b.tid.localeCompare(a.tid));
+  let h = `<div class="nytt"><input type="text" id="anslagRubrik" placeholder="Rubrik (valfritt)">
+    <textarea id="anslagText" placeholder="Skriv ett inlägg till alla i tävlingssektionen… Rader som börjar med - blir punktlista."></textarea>
+    <div class="rad"><button class="btn primary" onclick="nyttAnslag()">Anslå</button></div></div>`;
+  if (!poster.length) h += '<div class="empty">Inga inlägg ännu. Skriv det första!</div>';
+  for (const a of poster) {
+    h += `<div class="inlagg ${arNy(a, anslagSedan) ? 'ny' : ''}" id="inlagg-${a.id}">
+      <div class="top"><span class="avatar">${esc(initialer(a.vem))}</span><b>${esc(a.vem)}</b><span class="tid">${esc(tidStr(a.tid))}</span>${arNy(a, anslagSedan) ? '<span class="badge">Ny</span>' : ''}
+        <span class="ops"><button class="iconbtn danger" title="Ta bort inlägget" onclick="taBortAnslag('${a.id}')">🗑</button></span></div>
+      ${a.rubrik ? `<h3>${esc(a.rubrik)}</h3>` : ''}
+      <div class="text">${anteckningHtml(a.text)}</div>
+      ${a.kommentarer.map(k => `<div class="komm ${arNy(k, anslagSedan) ? 'ny' : ''}"><span class="avatar">${esc(initialer(k.vem))}</span><div><div class="top"><b>${esc(k.vem)}</b> <span class="tid">${esc(tidStr(k.tid))}</span><span class="ops"><button class="iconbtn danger" title="Ta bort kommentaren" onclick="taBortKommentar('${a.id}','${k.id}')">🗑</button></span></div><div class="text">${esc(k.text)}</div></div></div>`).join('')}
+      <div class="kommrad"><input type="text" id="komm-${a.id}" placeholder="Skriv en kommentar…" onkeydown="if(event.key==='Enter'){event.preventDefault();nyKommentar('${a.id}')}"><button class="btn small" onclick="nyKommentar('${a.id}')">Kommentera</button></div>
+    </div>`;
+  }
+  document.getElementById('anslagInner').innerHTML = h;
+}
+function nyttAnslag() {
+  const rubrik = document.getElementById('anslagRubrik').value.trim(), text = document.getElementById('anslagText').value.trim();
+  if (!text && !rubrik) { toast('Skriv något först'); return; }
+  state.anslag ||= [];
+  state.anslag.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', rubrik, text, kommentarer: [] });
+  save(); renderAnslag(); render();
+}
+function nyKommentar(aid) {
+  const inp = document.getElementById('komm-' + aid); const text = inp.value.trim(); if (!text) return;
+  const a = state.anslag.find(a => a.id === aid); a.kommentarer.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', text });
+  save(); renderAnslag(); render();
+  document.getElementById('inlagg-' + aid)?.scrollIntoView({ block: 'nearest' });
+}
+function taBortAnslag(aid) {
+  const a = state.anslag.find(a => a.id === aid);
+  if (!confirm(`Ta bort inlägget${a.rubrik ? ` "${a.rubrik}"` : ''} av ${a.vem}${a.kommentarer.length ? ` med ${a.kommentarer.length} kommentarer` : ''}?`)) return;
+  state.anslag = state.anslag.filter(x => x.id !== aid); save(); renderAnslag(); render();
+}
+function taBortKommentar(aid, kid) {
+  const a = state.anslag.find(a => a.id === aid); const k = a.kommentarer.find(k => k.id === kid);
+  if (!confirm(`Ta bort kommentaren av ${k.vem}?`)) return;
+  a.kommentarer = a.kommentarer.filter(x => x.id !== kid); save(); renderAnslag(); render();
+}
+
+function anteckningHtml(text) {
+  // Rader som börjar med - * eller • blir punktlista, resten visas som den skrevs.
+  const ut = []; let lista = null;
+  for (const rad of String(text).split('\n')) {
+    const m = rad.match(/^\s*[-*•]\s+(.*)$/);
+    if (m) { if (!lista) { lista = []; ut.push(lista); } lista.push(m[1]); }
+    else { lista = null; ut.push(rad); }
+  }
+  return ut.map(x => Array.isArray(x) ? `<ul>${x.map(li => `<li>${esc(li)}</li>`).join('')}</ul>` : esc(x)).join('\n').replace(/\n(<ul>)/g, '$1').replace(/(<\/ul>)\n/g, '$1');
+}
+function uppgiftRad(o, u, i) {
+  return `<div class="task ${u.klar ? 'done' : ''}">
+    <input type="checkbox" ${u.klar ? 'checked' : ''} onchange="toggleUppgift('${o.id}','${u.id}')">
+    <div class="t"><div class="txt" onclick="dlgUppgift('${o.id}','${u.id}')" title="Klicka för att skriva en anteckning">${esc(u.text)}</div>
+      ${u.anteckning ? `<div class="note" onclick="dlgUppgift('${o.id}','${u.id}')">${anteckningHtml(u.anteckning)}</div>` : ''}
+      <div class="who">Ansvarig:<select onchange="sattAnsvarig('${o.id}','${u.id}',this.value)">
+        <option value="">ingen</option>
+        ${state.personer.map(p => `<option value="${p.id}" ${u.ansvarig === p.id ? 'selected' : ''}>${esc(p.namn)}</option>`).join('')}
+      </select></div></div>
+    <div class="ops">
+      <button class="iconbtn" title="Flytta upp" onclick="flyttaUppgift('${o.id}',${i},-1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+      <button class="iconbtn" title="Flytta ner" onclick="flyttaUppgift('${o.id}',${i},1)" ${i === o.uppgifter.length - 1 ? 'disabled' : ''}>↓</button>
+      <button class="iconbtn" title="Redigera" onclick="dlgUppgift('${o.id}','${u.id}')">✎</button>
+      <button class="iconbtn danger" title="Ta bort" onclick="taBortUppgift('${o.id}','${u.id}')">🗑</button>
+    </div></div>`;
+}
+
+function passKort(p, visaOmrade) {
+  const k = krockar(p);
+  return `<div class="pass ${k.length ? 'conflict' : ''}" onclick="dlgPass('${p.omrade.id}','${p.schema.id}','${p.id}')">
+    ${visaOmrade ? `<div class="omr">${esc(p.omrade.namn)} · ${esc(p.schema.namn)}</div>` : ''}
+    <div class="time">${esc(passTid(p))}</div>
+    <div class="ppl ${p.personer.length ? '' : 'none'}">${p.personer.length ? p.personer.map(namn).map(esc).join(', ') : 'Ingen tillsatt'}</div>
+    ${p.anteckning ? `<div class="note">${esc(p.anteckning)}</div>` : ''}
+    ${k.length ? `<div class="dup">⚠ Dubbelbokad: ${k.map(namn).map(esc).join(', ')}</div>` : ''}
+  </div>`;
+}
+
+function schemaBlock(o, sc) {
+  const dagar = [...sc.dagar].sort(sortDag);
+  return `<div class="schema">
+    <div class="head"><h3>${esc(sc.namn)}</h3><span class="days">${dagar.map(d => dag(d)?.kort).join(' · ')}</span>
+      <span class="right"><button class="iconbtn" title="Redigera schema" onclick="dlgSchema('${o.id}','${sc.id}')">✎</button>
+      <button class="iconbtn danger" title="Ta bort schema" onclick="taBortSchema('${o.id}','${sc.id}')">🗑</button></span></div>
+    <div class="daycols">${dagar.map(d => {
+      const pass = sc.pass.filter(p => p.dag === d).sort(passOrdning).map(p => ({ ...p, omrade: o, schema: sc }));
+      return `<div class="daycol"><h4>${esc(dag(d)?.label)}</h4>${pass.map(p => passKort(p)).join('')}
+        <button class="addpass" onclick="dlgPass('${o.id}','${sc.id}',null,'${d}')">+ Pass</button></div>`;
+    }).join('')}</div></div>`;
+}
+
+let schemaTab = 'dag';
+function vySchema() {
+  const pass = allaPass();
+  const dagarMedPass = new Set(pass.map(p => p.dag));
+  const dagar = DAGAR_ALLA.filter(d => state.tavling.dagar.includes(d.id) || dagarMedPass.has(d.id));
+  let h = `<div class="topbar"><div><h1>Schema</h1><div class="sub">Alla pass i alla områden. Klicka på ett pass för att ändra det.</div></div>
+    <div class="actions"><button class="btn" onclick="window.print()">Skriv ut</button></div></div>
+    <div class="tabs">
+      <button class="${schemaTab === 'dag' ? 'active' : ''}" onclick="schemaTab='dag';render()">Per dag</button>
+      <button class="${schemaTab === 'person' ? 'active' : ''}" onclick="schemaTab='person';render()">Per person</button>
+      <button class="${schemaTab === 'lediga' ? 'active' : ''}" onclick="schemaTab='lediga';render()">Obemannade pass</button>
+    </div>`;
+  if (!pass.length) return h + `<div class="empty">Inga pass ännu. Gå in på ett område och skapa ett schema.</div>`;
+
+  if (schemaTab === 'dag') {
+    for (const d of dagar) {
+      const pd = pass.filter(p => p.dag === d.id).sort((a, b) => a.omrade.namn.localeCompare(b.omrade.namn, 'sv') || passOrdning(a, b));
+      h += `<div class="section-head"><h2>${esc(d.label)}</h2><div class="line"></div><span class="hint">${pd.length} pass</span></div>`;
+      if (!pd.length) { h += `<div class="empty">Inga pass.</div>`; continue; }
+      const perOmr = {};
+      for (const p of pd) (perOmr[p.omrade.id] ||= []).push(p);
+      h += `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">`;
+      for (const [oid, ps] of Object.entries(perOmr)) {
+        h += `<div class="card" style="padding:12px 14px"><h3 style="font-size:15px;cursor:pointer" onclick="go('omrade',{id:'${oid}'})">${esc(omrById(oid).namn)}</h3>
+          ${ps.map(p => passKort(p)).join('')}</div>`;
+      }
+      h += `</div>`;
+    }
+  } else if (schemaTab === 'person') {
+    const pers = [...state.personer].sort((a, b) => a.namn.localeCompare(b.namn, 'sv'));
+    h += `<table><thead><tr><th>Person</th>${dagar.map(d => `<th>${esc(d.kort)}</th>`).join('')}<th>Pass</th></tr></thead><tbody>`;
+    for (const p of pers) {
+      const mina = pass.filter(x => x.personer.includes(p.id));
+      h += `<tr><td style="white-space:nowrap"><span class="avatar">${esc(initialer(p.namn))}</span> ${esc(p.namn)}</td>`;
+      for (const d of dagar) {
+        const pd = mina.filter(x => x.dag === d.id).sort(passOrdning);
+        h += `<td>${pd.map(x => `<div class="pass ${krockar(x).length ? 'conflict' : ''}" style="margin-bottom:4px" onclick="dlgPass('${x.omrade.id}','${x.schema.id}','${x.id}')"><div class="time">${esc(passTid(x))}</div><div class="omr">${esc(x.omrade.namn)}</div></div>`).join('') || '<span class="hint">–</span>'}</td>`;
+      }
+      h += `<td>${mina.length}</td></tr>`;
+    }
+    h += `</tbody></table>`;
+    const utan = pass.filter(p => !p.personer.length).length;
+    if (utan) h += `<p class="hint" style="margin-top:12px">${utan} pass saknar personer. Se fliken Obemannade pass.</p>`;
+  } else {
+    const lediga = pass.filter(p => !p.personer.length).sort((a, b) => sortDag(a.dag, b.dag) || passOrdning(a, b));
+    if (!lediga.length) h += `<div class="empty">Alla pass har någon tillsatt. 🎉</div>`;
+    else h += `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${lediga.map(p => `<div>${passKort(p, true)}<div class="hint" style="margin:-2px 0 8px 4px">${esc(dag(p.dag)?.label)}</div></div>`).join('')}</div>`;
+  }
+  return h;
+}
+
+function vyPersoner() {
+  const pers = [...state.personer].sort((a, b) => a.namn.localeCompare(b.namn, 'sv'));
+  const pass = allaPass();
+  let h = `<div class="topbar"><div><h1>Personer</h1><div class="sub">${pers.length} personer</div></div>
+    <div class="actions"><button class="btn primary" onclick="dlgPerson()">+ Ny person</button></div></div>`;
+  h += `<div class="block" style="padding:0 0 0"><table><thead><tr><th>Namn</th><th>Telefon</th><th>Ansvarig för område</th><th>Uppgifter</th><th>Pass</th><th>Anteckning</th><th></th></tr></thead><tbody>`;
+  for (const p of pers) {
+    const omr = state.omraden.filter(o => o.ansvariga.includes(p.id));
+    const upp = state.omraden.flatMap(o => o.uppgifter.filter(u => u.ansvarig === p.id).map(u => ({ ...u, o })));
+    const mina = pass.filter(x => x.personer.includes(p.id));
+    h += `<tr><td style="white-space:nowrap"><span class="avatar">${esc(initialer(p.namn))}</span> <b>${esc(p.namn)}</b></td>
+      <td>${p.telefon ? `<a href="tel:${esc(p.telefon)}">${esc(p.telefon)}</a>` : '<span class="hint">–</span>'}</td>
+      <td>${omr.map(o => `<a href="#" onclick="event.preventDefault();go('omrade',{id:'${o.id}'})">${esc(o.namn)}</a>`).join(', ') || '<span class="hint">–</span>'}</td>
+      <td>${upp.length ? `<details><summary>${upp.filter(u => u.klar).length} / ${upp.length}</summary>${upp.map(u => `<div class="hint" style="margin-top:4px">${u.klar ? '✓' : '○'} ${esc(u.text)} <i>(${esc(u.o.namn)})</i></div>`).join('')}</details>` : '<span class="hint">–</span>'}</td>
+      <td>${mina.length ? `<details><summary>${mina.length}</summary>${mina.sort((a, b) => sortDag(a.dag, b.dag) || passOrdning(a, b)).map(x => `<div class="hint" style="margin-top:4px">${esc(dag(x.dag)?.kort)} ${x.klass || (x.start && x.slut) ? esc(passTid(x)) : ''} ${esc(x.omrade.namn)}</div>`).join('')}</details>` : '<span class="hint">–</span>'}</td>
+      <td class="hint">${esc(p.anteckning)}</td>
+      <td style="white-space:nowrap"><span class="ops"><button class="iconbtn" onclick="dlgPerson('${p.id}')">✎</button><button class="iconbtn danger" onclick="taBortPerson('${p.id}')">🗑</button></span></td></tr>`;
+  }
+  h += `</tbody></table></div>`;
+  h += `<div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">personer som lagts till, ändrats eller tagits bort</span></h2>${loggLista((state.logg || []).filter(r => !r.kategoriId), 'personer', false)}</div>`;
+  return h;
+}
+
+function vyInstallningar() {
+  return `<div class="topbar"><div><h1>Inställningar</h1></div></div>
+  <div class="block"><h2>Tävlingen</h2>
+    <label class="f">Namn</label><input type="text" value="${esc(state.tavling.namn)}" onchange="state.tavling.namn=this.value.trim()||'Ronneby Horse Show';save();render()">
+    <label class="f">Vecka eller datum (visas under namnet i menyn)</label><input type="text" value="${esc(state.tavling.vecka)}" placeholder="T.ex. Vecka 7 eller 11–15 februari" onchange="state.tavling.vecka=this.value.trim();save();render()">
+    <label class="f">Tävlingsdagar (de dagar som föreslås när du skapar ett schema)</label>
+    <div class="daypick">${DAGAR_ALLA.map(d => `<span class="chip pick ${state.tavling.dagar.includes(d.id) ? 'on' : ''}" onclick="toggleTavlingsdag('${d.id}')">${esc(d.label)}</span>`).join('')}</div>
+  </div>
+  <div class="block"><h2>Spara och flytta data</h2>
+    <p class="hint">Allt sparas automatiskt i den här webbläsaren på den här datorn. Vill du ha en säkerhetskopia, flytta till en annan dator eller dela med någon annan: exportera till fil och importera den där.</p>
+    <div class="actions"><button class="btn primary" onclick="exportera()">Exportera till fil</button>
+      <label class="btn" style="display:inline-block">Importera från fil<input type="file" accept="application/json,.json" style="display:none" onchange="importera(this.files[0])"></label></div>
+  </div>
+  <div class="block"><h2>Återställ</h2>
+    <p class="hint">Rensar allt och läser in grunddatat från Excel-filen igen (områden, uppgifter och de sex personerna). Scheman och ändringar försvinner. Exportera först om du är osäker.</p>
+    <button class="btn danger" onclick="aterstall()">Återställ till Excel-grunddata</button>
+  </div>`;
+}
+
+/* ============ Åtgärder ============ */
+function toggleTavlingsdag(d) {
+  const i = state.tavling.dagar.indexOf(d);
+  if (i >= 0) { if (state.tavling.dagar.length === 1) return toast('Minst en dag måste vara vald'); state.tavling.dagar.splice(i, 1); }
+  else state.tavling.dagar.push(d);
+  state.tavling.dagar.sort(sortDag); save(); render();
+}
+function laggTillAnsvarig(oid, pid) {
+  if (!pid) return;
+  if (pid === '__ny') return dlgPerson(null, p => { omrById(oid).ansvariga.push(p.id); logga(oid, `satte ${p.namn} som ansvarig för området`); save(); render(); });
+  if (omrById(oid).ansvariga.includes(pid)) return render();
+  omrById(oid).ansvariga.push(pid); logga(oid, `satte ${namn(pid)} som ansvarig för området`); save(); render();
+}
+document.addEventListener('click', e => {
+  const r = e.target.closest('[data-remove]');
+  if (r && route.view === 'omrade') { const o = omrById(route.id); o.ansvariga = o.ansvariga.filter(p => p !== r.dataset.remove); logga(o.id, `tog bort ${namn(r.dataset.remove)} som ansvarig för området`); save(); render(); }
+});
+function laggTillUppgift(oid, text) { text = text.trim(); if (!text) return; omrById(oid).uppgifter.push({ id: uid(), text, anteckning: '', ansvarig: null, klar: false }); logga(oid, `lade till uppgiften "${text}"`); save(); render(); }
+function toggleUppgift(oid, uid_) { const u = omrById(oid).uppgifter.find(u => u.id === uid_); u.klar = !u.klar; logga(oid, `${u.klar ? 'bockade av' : 'öppnade igen'} uppgiften "${u.text}"`); save(); render(); }
+function sattAnsvarig(oid, uid_, pid) { const u = omrById(oid).uppgifter.find(u => u.id === uid_); const fore = u.ansvarig; u.ansvarig = pid || null; if (fore !== u.ansvarig) logga(oid, pid ? `satte ${namn(pid)} som ansvarig för uppgiften "${u.text}"${fore ? ` (var ${namn(fore)})` : ''}` : `tog bort ${namn(fore)} som ansvarig för uppgiften "${u.text}"`); save(); render(); }
+function flyttaUppgift(oid, i, d) { const a = omrById(oid).uppgifter; const j = i + d; if (j < 0 || j >= a.length) return;[a[i], a[j]] = [a[j], a[i]]; save(); render(); }
+function taBortUppgift(oid, uid_) { const o = omrById(oid); const u = o.uppgifter.find(u => u.id === uid_); if (!confirm(`Ta bort uppgiften "${u.text}"?`)) return; o.uppgifter = o.uppgifter.filter(u => u.id !== uid_); logga(oid, `tog bort uppgiften "${u.text}"`); save(); render(); }
+function taBortOmrade(oid) { const o = omrById(oid); if (!confirm(`Ta bort området "${o.namn}" med ${o.uppgifter.length} uppgifter och ${o.scheman.length} scheman?`)) return; logga(oid, `tog bort området "${o.namn}" med ${o.uppgifter.length} uppgifter och ${o.scheman.length} scheman`); state.omraden = state.omraden.filter(x => x.id !== oid); save(); go('oversikt'); }
+function taBortSektion(sid) {
+  const s = sektById(sid); const os = omradenI(sid);
+  if (os.length) { if (!confirm(`Kategorin "${s.namn}" har ${os.length} områden. Ta bort kategorin OCH alla områden i den?`)) return; state.omraden = state.omraden.filter(o => o.sektionId !== sid); }
+  else if (!confirm(`Ta bort kategorin "${s.namn}"?`)) return;
+  state.sektioner = state.sektioner.filter(x => x.id !== sid); logga(null, `tog bort kategorin "${s.namn}"${os.length ? ` med ${os.length} områden` : ''}`); save(); go('oversikt');
+}
+function taBortSchema(oid, sid) { const o = omrById(oid); const s = o.scheman.find(s => s.id === sid); if (!confirm(`Ta bort schemat "${s.namn}" med ${s.pass.length} pass?`)) return; o.scheman = o.scheman.filter(s => s.id !== sid); logga(oid, `tog bort schemat "${s.namn}" med ${s.pass.length} pass`); save(); render(); }
+function taBortPerson(pid) {
+  const p = personById(pid); if (!confirm(`Ta bort ${p.namn}? Personen tas bort från alla områden, uppgifter och pass.`)) return;
+  state.personer = state.personer.filter(x => x.id !== pid);
+  for (const o of state.omraden) {
+    let rorde = o.ansvariga.includes(pid);
+    o.ansvariga = o.ansvariga.filter(x => x !== pid);
+    for (const u of o.uppgifter) if (u.ansvarig === pid) { u.ansvarig = null; rorde = true; }
+    for (const s of o.scheman) for (const ps of s.pass) if (ps.personer.includes(pid)) { ps.personer = ps.personer.filter(x => x !== pid); rorde = true; }
+    if (rorde) logga(o.id, `tog bort personen ${p.namn} (plockades bort från områdets ansvariga, uppgifter och pass)`);
+  }
+  logga(null, `tog bort personen ${p.namn}`);
+  save(); render();
+}
+function exportera() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `tavlingssektionen-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+}
+function importera(file) {
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = () => { try { const d = JSON.parse(r.result); if (!d.omraden || !d.personer) throw 0; if (!confirm(sb ? 'Ersätta ALLT i databasen, för alla medlemmar, med innehållet i filen?' : 'Ersätta allt som finns här med innehållet i filen?')) return; mergeInPlace(state, d); save(); go('oversikt'); toast('Importerat'); } catch { alert('Filen gick inte att läsa. Är det en export från den här appen?'); } };
+  r.readAsText(file);
+}
+function aterstall() { if (!confirm(sb ? 'Rensa ALLT i databasen, för alla medlemmar, och läs in grunddatat från Excel igen? Scheman, loggar och anslag försvinner.' : 'Rensa allt och läs in grunddatat från Excel igen?')) return; mergeInPlace(state, seedData()); save(); go('oversikt'); }
+
+/* ============ Dialoger ============ */
+const dlg = document.getElementById('dlg');
+function openDlg(html, onSubmit, stor) {
+  dlg.classList.toggle('stor', !!stor);
+  dlg.innerHTML = `<form method="dialog">${html}</form>`;
+  const form = dlg.querySelector('form');
+  form.addEventListener('submit', e => { if (e.submitter?.value === 'cancel') return; e.preventDefault(); if (onSubmit(form) !== false) dlg.close(); });
+  dlg.showModal();
+  const first = form.querySelector('input[type=text],textarea'); if (first) { first.focus(); first.select?.(); }
+}
+const foot = (extra = '') => `<div class="foot">${extra}<div class="r"><button class="btn" value="cancel">Avbryt</button><button class="btn primary">Spara</button></div></div>`;
+const personPick = (valda, namnAttr = 'personer') => `<div class="chips">${state.personer.length ? state.personer.map(p =>
+  `<label class="chip pick ${valda.includes(p.id) ? 'on' : ''}"><input type="checkbox" name="${namnAttr}" value="${p.id}" ${valda.includes(p.id) ? 'checked' : ''} style="display:none" onchange="this.parentElement.classList.toggle('on',this.checked)">${esc(p.namn)}</label>`).join('')
+  : '<span class="hint">Inga personer ännu. Lägg till under Personer.</span>'}</div>`;
+const dagPick = (valda) => `<div class="daypick">${DAGAR_ALLA.map(d =>
+  `<label class="chip pick ${valda.includes(d.id) ? 'on' : ''}"><input type="checkbox" name="dagar" value="${d.id}" ${valda.includes(d.id) ? 'checked' : ''} style="display:none" onchange="this.parentElement.classList.toggle('on',this.checked)">${esc(d.label)}</label>`).join('')}</div>`;
+const checked = (form, name) => [...form.querySelectorAll(`input[name=${name}]:checked`)].map(i => i.value);
+
+function dlgSektion(sid) {
+  const s = sid ? sektById(sid) : null;
+  openDlg(`<h2>${s ? 'Byt namn på kategori' : 'Ny kategori'}</h2>
+    <label class="f">Namn</label><input type="text" name="namn" value="${esc(s?.namn)}" required placeholder="T.ex. Sekretariat">
+    <p class="hint">En kategori samlar flera områden, som Mat samlar Kiosk, Grill och Frukostbuffé. Har kategorin bara ett område kan det heta samma sak, som Parkering.</p>${foot()}`,
+    f => { const n = f.namn.value.trim(); if (!n) return false;
+      if (s) { if (n !== s.namn) { const g = s.namn; s.namn = n; state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: s.id, omradeId: null, omrade: '', text: `döpte om kategorin "${g}" till "${n}"` }); } }
+      else { const ny = { id: uid(), namn: n }; state.sektioner.push(ny); state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: ny.id, omradeId: null, omrade: '', text: `skapade kategorin "${n}"` }); }
+      save(); render(); });
+}
+function dlgOmrade(oid, sidDefault) {
+  const o = oid ? omrById(oid) : null;
+  openDlg(`<h2>${o ? 'Redigera område' : 'Nytt område'}</h2>
+    <label class="f">Namn</label><input type="text" name="namn" value="${esc(o?.namn)}" required placeholder="T.ex. Sekretariat">
+    <label class="f">Kategori</label><select name="sektion">${state.sektioner.map(s => `<option value="${s.id}" ${(o?.sektionId || sidDefault || state.sektioner[0]?.id) === s.id ? 'selected' : ''}>${esc(s.namn)}</option>`).join('')}</select>
+    <label class="f">Beskrivning</label><textarea name="beskrivning" placeholder="Vad området innebär, var det är, vad man ska tänka på…">${esc(o?.beskrivning)}</textarea>
+    ${o ? '' : `<label class="f">Ansvariga</label>${personPick([], 'ansvariga')}`}${foot()}`,
+    f => {
+      const n = f.namn.value.trim(); if (!n) return false;
+      if (o) {
+        const andr = [];
+        if (n !== o.namn) andr.push(`bytte namn från "${o.namn}" till "${n}"`);
+        if (f.sektion.value !== o.sektionId) andr.push(`flyttade området till kategorin ${sektById(f.sektion.value)?.namn}`);
+        if (f.beskrivning.value.trim() !== (o.beskrivning || '')) andr.push('ändrade beskrivningen');
+        if (f.sektion.value !== o.sektionId) logga(o.id, `flyttade området "${o.namn}" till kategorin ${sektById(f.sektion.value)?.namn}`);
+        o.namn = n; o.sektionId = f.sektion.value; o.beskrivning = f.beskrivning.value.trim();
+        if (andr.length) logga(o.id, andr.join(', '));
+        save(); render();
+      }
+      else { const ny = { id: uid(), sektionId: f.sektion.value, namn: n, beskrivning: f.beskrivning.value.trim(), ansvariga: checked(f, 'ansvariga'), uppgifter: [], scheman: [] }; state.omraden.push(ny); logga(ny.id, `skapade området "${n}"${ny.ansvariga.length ? ` med ${namnLista(ny.ansvariga)} som ansvarig` : ''}`); save(); go('omrade', { id: ny.id }); }
+    });
+}
+function dlgUppgift(oid, uid_) {
+  const o = omrById(oid); const u = o.uppgifter.find(u => u.id === uid_);
+  openDlg(`<h2>Uppgift <span class="hint" style="font-weight:400;font-size:14px">${esc(o.namn)}</span></h2>
+    <div class="two" style="gap:12px;margin-bottom:4px"><div><label class="f">Uppgift</label><input type="text" name="text" value="${esc(u.text)}" required></div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end"><div><label class="f">Ansvarig</label><select name="ansvarig"><option value="">Ingen</option>${state.personer.map(p => `<option value="${p.id}" ${u.ansvarig === p.id ? 'selected' : ''}>${esc(p.namn)}</option>`).join('')}</select></div>
+    <label class="f" style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" name="klar" ${u.klar ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Klar</label></div></div>
+    <div class="vax"><label class="f">Anteckning <span style="font-weight:400">· rader som börjar med - blir punktlista</span></label>
+    <textarea name="anteckning" class="stor" placeholder="Skriv fritt: listor, beskrivningar, vad som är bestämt, vem som sa vad, vad som är kvar…\n\n- punkt ett\n- punkt två">${esc(u.anteckning)}</textarea></div>${foot()}`,
+    f => {
+      const t = f.text.value.trim(); if (!t) return false;
+      const ant = f.anteckning.value.trim(), ansv = f.ansvarig.value || null, klar = f.klar.checked;
+      const andr = [];
+      if (t !== u.text) andr.push(`ändrade uppgiften "${u.text}" till "${t}"`);
+      if (ant !== (u.anteckning || '')) andr.push(`${u.anteckning ? 'ändrade' : 'skrev'} anteckningen på uppgiften "${t}"`);
+      if (ansv !== (u.ansvarig || null)) andr.push(ansv ? `satte ${namn(ansv)} som ansvarig för uppgiften "${t}"${u.ansvarig ? ` (var ${namn(u.ansvarig)})` : ''}` : `tog bort ${namn(u.ansvarig)} som ansvarig för uppgiften "${t}"`);
+      if (klar !== !!u.klar) andr.push(`${klar ? 'bockade av' : 'öppnade igen'} uppgiften "${t}"`);
+      u.text = t; u.anteckning = ant; u.ansvarig = ansv; u.klar = klar;
+      if (andr.length) logga(oid, andr.join(', '));
+      save(); render();
+    }, true);
+}
+function dlgPerson(pid, efter) {
+  const p = pid ? personById(pid) : null;
+  openDlg(`<h2>${p ? 'Redigera person' : 'Ny person'}</h2>
+    <label class="f">Namn</label><input type="text" name="namn" value="${esc(p?.namn)}" required>
+    <label class="f">Telefon</label><input type="tel" name="telefon" value="${esc(p?.telefon)}" placeholder="070-…">
+    <label class="f">Anteckning</label><input type="text" name="anteckning" value="${esc(p?.anteckning)}" placeholder="T.ex. kan bara lördag, har körkort för lastbil…">${foot()}`,
+    f => {
+      const n = f.namn.value.trim(); if (!n) return false;
+      if (p) { const g = p.namn; p.namn = n; p.telefon = f.telefon.value.trim(); p.anteckning = f.anteckning.value.trim(); logga(null, g !== n ? `döpte om personen ${g} till ${n}` : `ändrade uppgifterna på ${n}`); }
+      else { const ny = { id: uid(), namn: n, telefon: f.telefon.value.trim(), anteckning: f.anteckning.value.trim() }; state.personer.push(ny); logga(null, `lade till personen ${n}`); if (efter) { efter(ny); return; } }
+      save(); render();
+    });
+}
+function dlgSchema(oid, sid) {
+  const o = omrById(oid); const s = sid ? o.scheman.find(s => s.id === sid) : null;
+  openDlg(`<h2>${s ? 'Redigera schema' : 'Nytt schema för ' + esc(o.namn)}</h2>
+    <label class="f">Namn på schemat</label><input type="text" name="namn" value="${esc(s?.namn)}" required placeholder="T.ex. Banpersonal, Kiosken, Ombyggnad">
+    <label class="f">Vilka dagar gäller schemat?</label>${dagPick(s ? s.dagar : state.tavling.dagar)}
+    ${s ? '<p class="hint">Tar du bort en dag som har pass ligger passen kvar men visas inte förrän dagen läggs till igen.</p>' : ''}${foot()}`,
+    f => {
+      const n = f.namn.value.trim(); const dagar = checked(f, 'dagar');
+      if (!n) return false; if (!dagar.length) { alert('Välj minst en dag.'); return false; }
+      const dagText = d => [...d].sort(sortDag).map(x => dag(x)?.kort).join(', ');
+      if (s) {
+        const andr = [];
+        if (n !== s.namn) andr.push(`döpte om schemat "${s.namn}" till "${n}"`);
+        if (dagText(dagar) !== dagText(s.dagar)) andr.push(`ändrade dagarna för schemat "${n}" till ${dagText(dagar)}`);
+        s.namn = n; s.dagar = dagar; if (andr.length) logga(oid, andr.join(', '));
+      } else { o.scheman.push({ id: uid(), namn: n, dagar, pass: [] }); logga(oid, `skapade schemat "${n}" (${dagText(dagar)})`); }
+      save(); render();
+    });
+}
+function dlgPass(oid, sid, pid, dagDefault) {
+  const o = omrById(oid); const s = o.scheman.find(s => s.id === sid); const p = pid ? s.pass.find(p => p.id === pid) : null;
+  const dagar = [...s.dagar].sort(sortDag);
+  openDlg(`<h2>${p ? 'Redigera pass' : 'Nytt pass'} <span class="hint" style="font-weight:400;font-size:14px">${esc(o.namn)} · ${esc(s.namn)}</span></h2>
+    <label class="f">Dag</label><select name="dag">${dagar.map(d => `<option value="${d}" ${(p?.dag || dagDefault) === d ? 'selected' : ''}>${esc(dag(d)?.label)}</option>`).join('')}</select>
+    <label class="f">Passet gäller</label>
+    <div class="chips lage">
+      <label class="chip pick ${p?.klass ? '' : 'on'}"><input type="radio" name="lage" value="tid" ${p?.klass ? '' : 'checked'} style="display:none" onchange="passLage(this.form)">Tid</label>
+      <label class="chip pick ${p?.klass ? 'on' : ''}"><input type="radio" name="lage" value="klass" ${p?.klass ? 'checked' : ''} style="display:none" onchange="passLage(this.form)">Klass (turordning)</label>
+    </div>
+    <div class="lage-tid">
+      <div class="two" style="gap:12px"><div><label class="f">Börjar</label><input type="time" name="start" value="${esc(p?.start)}"></div><div><label class="f">Slutar</label><input type="time" name="slut" value="${esc(p?.slut)}"></div></div>
+      <p class="hint" style="margin:6px 0 0">Lämna tiderna tomma för ett pass som gäller hela dagen.</p>
+    </div>
+    <div class="lage-klass" style="display:none">
+      <label class="f">Klass</label><input type="text" name="klass" value="${esc(p?.klass)}" data-forslag="${esc(nastaKlass(s, p?.dag || dagDefault || dagar[0]))}" placeholder="T.ex. Klass 1">
+      <p class="hint" style="margin:6px 0 0">Ingen tid, bara turordning. Passen sorteras efter klassens nummer: Klass 1, Klass 2, Klass 3 … Du kan skriva mer efter numret, som "Klass 3 · 1,10 m".</p>
+    </div>
+    <label class="f">Personer <span style="font-weight:400">(klicka för att välja)</span></label>${personPick(p?.personer || [])}
+    <button type="button" class="btn small ghost" style="margin-top:6px" onclick="dlgPassNyPerson()">＋ Ny person</button>
+    <label class="f">Anteckning</label><input type="text" name="anteckning" value="${esc(p?.anteckning)}" placeholder="T.ex. ta med hinderlista, nyckel till containern…">
+    ${foot(p ? `<button type="button" class="btn danger" onclick="taBortPass('${oid}','${sid}','${pid}')">Ta bort pass</button>` : '')}`,
+    f => {
+      const klassLage = f.lage.value === 'klass';
+      const start = klassLage ? '' : f.start.value, slut = klassLage ? '' : f.slut.value;
+      const klass = klassLage ? f.klass.value.trim() : '';
+      if (klassLage && !klass) { alert('Skriv vilken klass passet gäller, t.ex. Klass 1.'); return false; }
+      if (start && slut && slut <= start) { alert('Sluttiden måste vara efter starttiden.'); return false; }
+      const d = { dag: f.dag.value, start, slut, klass, personer: checked(f, 'personer'), anteckning: f.anteckning.value.trim() };
+      if (p) {
+        const andr = [];
+        if (d.dag !== p.dag || d.start !== (p.start || '') || d.slut !== (p.slut || '') || d.klass !== (p.klass || '')) andr.push(`flyttade passet ${passText(p)} till ${passText(d)}`);
+        const in_ = d.personer.filter(x => !p.personer.includes(x)), ut = p.personer.filter(x => !d.personer.includes(x));
+        if (in_.length) andr.push(`satte ${namnLista(in_)} på passet ${passText(d)}`);
+        if (ut.length) andr.push(`tog bort ${namnLista(ut)} från passet ${passText(d)}`);
+        if (d.anteckning !== (p.anteckning || '')) andr.push(`ändrade anteckningen på passet ${passText(d)}`);
+        Object.assign(p, d);
+        if (andr.length) logga(oid, `${s.namn}: ` + andr.join(', '));
+      } else { s.pass.push({ id: uid(), ...d }); logga(oid, `${s.namn}: skapade passet ${passText(d)} med ${namnLista(d.personer)}`); }
+      save(); render();
+    });
+  dlg._pass = { oid, sid, pid, dagDefault };
+  passLage(dlg.querySelector('form'));
+}
+function passLage(f) {
+  const klass = f.lage.value === 'klass';
+  f.querySelector('.lage-tid').style.display = klass ? 'none' : '';
+  f.querySelector('.lage-klass').style.display = klass ? '' : 'none';
+  for (const r of f.querySelectorAll('input[name=lage]')) r.parentElement.classList.toggle('on', r.checked);
+  if (klass && !f.klass.value) f.klass.value = f.klass.dataset.forslag || 'Klass 1';
+  if (klass) { f.klass.focus(); f.klass.select(); }
+}
+function dlgPassNyPerson() {
+  // Spara det som redan fyllts i, öppna persondialogen och kom tillbaka med personen vald.
+  const f = dlg.querySelector('form'); const ctx = dlg._pass;
+  const snap = { dag: f.dag.value, lage: f.lage.value, klass: f.klass.value, start: f.start.value, slut: f.slut.value, personer: checked(f, 'personer'), anteckning: f.anteckning.value };
+  dlg.close();
+  dlgPerson(null, ny => {
+    save();
+    dlgPass(ctx.oid, ctx.sid, ctx.pid, snap.dag);
+    const g = dlg.querySelector('form');
+    g.dag.value = snap.dag; g.start.value = snap.start; g.slut.value = snap.slut; g.anteckning.value = snap.anteckning;
+    g.querySelector(`input[name=lage][value=${snap.lage}]`).checked = true; g.klass.value = snap.klass; passLage(g);
+    for (const cb of g.querySelectorAll('input[name=personer]')) { cb.checked = snap.personer.includes(cb.value) || cb.value === ny.id; cb.parentElement.classList.toggle('on', cb.checked); }
+  });
+}
+function taBortPass(oid, sid, pid) {
+  const s = omrById(oid).scheman.find(s => s.id === sid);
+  if (!confirm('Ta bort passet?')) return;
+  const p = s.pass.find(p => p.id === pid);
+  s.pass = s.pass.filter(p => p.id !== pid); logga(oid, `${s.namn}: tog bort passet ${passText(p)}${p.personer.length ? ` (${namnLista(p.personer)})` : ''}`); dlg.close(); save(); render();
+}
+
+function dlgVem(forsta) {
+  const namnen = [...new Set([...state.personer.map(p => p.namn), vem].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'sv'));
+  openDlg(`<h2>Vem är du?</h2>
+    <p class="hint" style="margin-top:0">Namnet skrivs i ändringsloggen på allt du gör, så att alla ser vem som ändrat vad. Det sparas i den här webbläsaren tills du byter.</p>
+    <div class="chips" style="margin-top:10px">${namnen.map(n => `<span class="chip pick ${n === vem ? 'on' : ''}" onclick="this.closest('form').namn.value='${esc(n).replace(/'/g, '&#39;')}';this.closest('form').requestSubmit()">${esc(n)}</span>`).join('')}</div>
+    <label class="f">Eller skriv ett namn</label><input type="text" name="namn" value="${esc(vem)}" placeholder="Ditt namn">
+    <div class="foot"><div class="r">${forsta ? '' : '<button class="btn" value="cancel">Avbryt</button>'}<button class="btn primary">Det är jag</button></div></div>`,
+    f => { const n = f.namn.value.trim(); if (!n) { alert('Skriv eller välj ett namn.'); return false; } sattVem(n); toast(`Hej ${n}!`); });
+  if (forsta) dlg.addEventListener('cancel', e => e.preventDefault(), { once: false });
+}
+
+starta();
+</script>
+</body>
+</html>
