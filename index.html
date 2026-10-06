@@ -202,6 +202,31 @@
   .status.lokal { background: var(--warn); }
   .laddar { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 40; color: var(--muted); font-size: 15px; gap: 10px; }
   .klasstabell th, .klasstabell td { padding: 7px 9px; font-size: 13px; }
+  .stallchips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .stallchips .chip { cursor: pointer; padding: 6px 14px; font-size: 14px; }
+  .stallchips .chip:hover { border-color: var(--border); }
+  .stallkarta { display: grid; grid-template-columns: 1fr 56px 1fr; gap: 0 10px; align-items: start; }
+  .stallkarta .kol { display: flex; flex-direction: column; gap: 6px; }
+  .stallkarta .gang { background: repeating-linear-gradient(0deg, var(--bg2) 0 14px, transparent 14px 20px); border-left: 2px dashed var(--border); border-right: 2px dashed var(--border); align-self: stretch; display: flex; align-items: center; justify-content: center; }
+  .stallkarta .gang span { writing-mode: vertical-rl; color: var(--muted); font-size: 12px; letter-spacing: .15em; text-transform: uppercase; background: var(--card); padding: 8px 2px; }
+  .box { border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; background: var(--card); cursor: pointer; position: relative; min-height: 58px; }
+  .box:hover { border-color: var(--accent); }
+  .box.ledig { background: var(--bg); color: var(--muted); border-style: dashed; }
+  .box .nr { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .box .nr b { color: var(--text); font-size: 14px; }
+  .box .hast { font-weight: 600; margin-top: 1px; }
+  .box .ryt { font-size: 13px; color: var(--muted); }
+  .box .bet { position: absolute; right: 8px; top: 7px; width: 10px; height: 10px; border-radius: 50%; background: var(--green); }
+  .box .bet.ej { background: transparent; border: 1.5px solid var(--warn); }
+  .box .ops { position: absolute; right: 6px; bottom: 4px; display: flex; gap: 0; opacity: 0; }
+  .box:hover .ops { opacity: 1; }
+  .box .ops .iconbtn { padding: 0 4px; font-size: 12px; }
+  .stallsum { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin: 4px 0 12px; }
+  .stallsum b { color: var(--text); }
+  .soklista .rad { display: flex; gap: 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--border); cursor: pointer; }
+  .soklista .rad:hover { background: rgba(0,0,0,.02); }
+  .soklista .rad:first-child { border-top: 0; }
+  @media (max-width: 700px) { .stallkarta { grid-template-columns: 1fr 30px 1fr; } }
   .klasstabell td:nth-child(10) { max-width: 220px; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
@@ -353,7 +378,7 @@ function seedData() {
   return {
     version: 1,
     tavling: { namn: 'Ronneby Horse Show', vecka: 'Vecka 7', dagar: ['ons', 'tor', 'fre', 'lor', 'son'] },
-    personer, sektioner: Object.values(S), omraden, klasser: [],
+    personer, sektioner: Object.values(S), omraden, klasser: [], stall: [], boxar: [],
   };
 }
 
@@ -380,6 +405,8 @@ function tillRader(st) {
   r.push({ samling: 'installningar', id: 'tavling', data: st.tavling });
   st.personer.forEach(x => r.push({ samling: 'personer', id: x.id, data: x }));
   (st.klasser || []).forEach(x => r.push({ samling: 'klasser', id: x.id, data: x }));
+  (st.stall || []).forEach((x, i) => { x.ordning = i; r.push({ samling: 'stall', id: x.id, data: x }); });
+  (st.boxar || []).forEach(x => r.push({ samling: 'boxar', id: x.id, data: x }));
   st.sektioner.forEach((x, i) => { x.ordning = i; r.push({ samling: 'sektioner', id: x.id, data: x }); });
   st.omraden.forEach((x, i) => { x.ordning = i; r.push({ samling: 'omraden', id: x.id, data: x }); });
   (st.logg || []).forEach(x => r.push({ samling: 'logg', id: x.id, data: x }));
@@ -393,7 +420,7 @@ function franRader(rader) {
   return {
     version: 1,
     tavling: g.installningar?.[0] || seedData().tavling,
-    personer: g.personer || [], klasser: g.klasser || [], sektioner: (g.sektioner || []).sort(ordn), omraden: (g.omraden || []).sort(ordn),
+    personer: g.personer || [], klasser: g.klasser || [], stall: (g.stall || []).sort(ordn), boxar: g.boxar || [], sektioner: (g.sektioner || []).sort(ordn), omraden: (g.omraden || []).sort(ordn),
     logg: (g.logg || []).sort(tid), anslag: (g.anslag || []).sort(tid),
   };
 }
@@ -453,7 +480,7 @@ function tillampa(rader) {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
 }
 // Ändringar från andra: bara den berörda raden rörs, så egna osparade ändringar i andra rader står kvar.
-const SAMLING_LISTA = { personer: 'personer', klasser: 'klasser', sektioner: 'sektioner', omraden: 'omraden', logg: 'logg', anslag: 'anslag' };
+const SAMLING_LISTA = { personer: 'personer', klasser: 'klasser', stall: 'stall', boxar: 'boxar', sektioner: 'sektioner', omraden: 'omraden', logg: 'logg', anslag: 'anslag' };
 function tillampaRad(r) {
   const k = nyckel(r); const j = JSON.stringify(r.data);
   if (r.samling === 'installningar') { mergeInPlace(state.tavling, r.data); }
@@ -462,7 +489,7 @@ function tillampaRad(r) {
     state[lista] ||= [];
     const bef = state[lista].find(x => x.id === r.id);
     if (bef) mergeInPlace(bef, r.data); else state[lista].push(r.data);
-    if (lista === 'sektioner' || lista === 'omraden') state[lista].sort((a, b) => (a.ordning ?? 0) - (b.ordning ?? 0));
+    if (lista === 'sektioner' || lista === 'omraden' || lista === 'stall') state[lista].sort((a, b) => (a.ordning ?? 0) - (b.ordning ?? 0));
     if (lista === 'logg' || lista === 'anslag') state[lista].sort((a, b) => (a.tid || '').localeCompare(b.tid || ''));
   }
   synkad[k] = j;
@@ -605,6 +632,7 @@ function renderNav() {
     <button class="${act('oversikt')}" onclick="go('oversikt')">🏠 Översikt ${anslagBadge()}</button>
     <button class="${act('schema')}" onclick="go('schema')">📅 Schema <span class="count">${allaPass().length}</span></button>
     <button class="${act('klasser')}" onclick="go('klasser')">🏇 Klasser <span class="count">${(state.klasser || []).length}</span></button>
+    <button class="${act('uppstallning')}" onclick="go('uppstallning')">🐴 Uppstallning <span class="count">${(state.boxar || []).length}</span></button>
     <button class="${act('personer')}" onclick="go('personer')">👥 Personer <span class="count">${state.personer.length}</span></button>
     <h4>Kategorier och områden</h4>`;
   for (const s of state.sektioner) {
@@ -636,6 +664,7 @@ function render() {
   else if (v === 'schema') m.innerHTML = vySchema();
   else if (v === 'personer') m.innerHTML = vyPersoner();
   else if (v === 'klasser') m.innerHTML = vyKlasser();
+  else if (v === 'uppstallning') m.innerHTML = vyUppstallning();
   else if (v === 'installningar') m.innerHTML = vyInstallningar();
 }
 
@@ -966,6 +995,126 @@ function taBortKlass(kid) {
   for (const o of state.omraden) for (const sc of o.scheman) for (const p of sc.pass) if (p.klassId === kid) delete p.klassId;
   logga(null, `tog bort ${klassNamn(k)} (${dag(k.dag)?.label})`, 'klass');
   if (dlg.open) dlg.close(); save(); render();
+}
+
+/* ============ Uppstallning ============ */
+const STORLEK = { stor: 'Stor box', mindre: 'Mindre box', ute: 'Utebox' };
+const stallById = id => (state.stall || []).find(s => s.id === id);
+const boxById = id => (state.boxar || []).find(b => b.id === id);
+const boxarI = sid => (state.boxar || []).filter(b => b.stallId === sid);
+const boxBelagd = b => !!(b.hast || b.ryttare);
+const boxText = b => `${stallById(b.stallId)?.namn || 'okänt stall'} box ${b.nr}`;
+const boxNr = (a, b) => (parseFloat(a.nr) || 9999) - (parseFloat(b.nr) || 9999) || String(a.nr).localeCompare(String(b.nr), 'sv');
+let valtStall = null, stallVy = 'karta', boxSok = '';
+
+function vyUppstallning() {
+  const stall = state.stall || [], boxar = state.boxar || [];
+  if (!valtStall || !stallById(valtStall)) valtStall = stall[0]?.id || null;
+  const belagda = boxar.filter(boxBelagd), betalda = belagda.filter(b => b.betalt);
+  let h = `<div class="topbar"><div><h1>Uppstallning</h1><div class="sub">${stall.length} stall · ${boxar.length} boxar · ${belagda.length} belagda · ${betalda.length} betalda</div></div>
+    <div class="actions"><button class="btn" onclick="window.print()">Skriv ut</button><button class="btn" onclick="dlgStall()">+ Nytt stall</button><button class="btn primary" onclick="dlgBox(null, valtStall)" ${stall.length ? '' : 'disabled'}>+ Ny box</button></div></div>`;
+  h += `<div style="margin-bottom:14px"><input type="text" value="${esc(boxSok)}" placeholder="Sök ryttare, häst eller företag i alla stall…" oninput="boxSok=this.value;render();const i=document.getElementById('boxSokFalt');i.focus();i.setSelectionRange(i.value.length,i.value.length)" id="boxSokFalt" style="max-width:420px"></div>`;
+  if (boxSok.trim()) {
+    const q = boxSok.trim().toLowerCase();
+    const tr = boxar.filter(b => [b.ryttare, b.hast, b.foretag, b.anteckning].some(x => (x || '').toLowerCase().includes(q))).sort((a, b) => (stallById(a.stallId)?.ordning ?? 0) - (stallById(b.stallId)?.ordning ?? 0) || boxNr(a, b));
+    h += `<div class="block"><h2>Sökträffar <span class="hint" style="font-weight:400">${tr.length} boxar</span></h2><div class="soklista">${tr.map(b => `<div class="rad" onclick="dlgBox('${b.id}')"><b style="white-space:nowrap">${esc(boxText(b))}</b><span>${esc(b.hast)}</span><span class="hint">${esc(b.ryttare)}${b.foretag ? ` · ${esc(b.foretag)}` : ''}</span><span class="hint" style="margin-left:auto">${b.betalt ? 'Betalt' : (b.avgift !== '' && b.avgift != null ? kr(b.avgift) + ' kr' : '')}</span></div>`).join('') || '<div class="empty">Inga träffar.</div>'}</div></div>`;
+  }
+  if (!stall.length) return h + `<div class="empty">Inga stall ännu. Skapa ett stall (Ridskolestallet, Tältstall 1 …) och lägg sedan in boxarna med ryttare och häst.</div>`;
+  h += `<div class="stallchips">${stall.map(s => `<span class="chip ${s.id === valtStall ? 'on' : ''}" onclick="valtStall='${s.id}';render()">${esc(s.namn)} <span class="hint">${boxarI(s.id).length}</span></span>`).join('')}</div>`;
+  const st = stallById(valtStall); const bs = boxarI(st.id);
+  const bel = bs.filter(boxBelagd), bet = bel.filter(b => b.betalt);
+  const summa = bel.reduce((n, b) => n + (Number(b.avgift) || 0), 0), summaBet = bet.reduce((n, b) => n + (Number(b.avgift) || 0), 0);
+  h += `<div class="block"><h2>${esc(st.namn)} <span class="right"><button class="btn small" onclick="dlgStall('${st.id}')">Redigera stall</button><button class="btn small" onclick="dlgBox(null,'${st.id}')">+ Ny box</button></span></h2>
+    ${st.anteckning ? `<div class="warnbox">${esc(st.anteckning)}</div>` : ''}
+    <div class="stallsum"><span><b>${bs.length}</b> boxar</span><span><b>${bel.length}</b> belagda</span><span><b>${bs.length - bel.length}</b> lediga</span><span><b>${bet.length}</b> av ${bel.length} betalda</span><span>avgifter <b>${kr(summa)} kr</b>, betalt <b>${kr(summaBet)} kr</b></span></div>
+    <div class="tabs"><button class="${stallVy === 'karta' ? 'active' : ''}" onclick="stallVy='karta';render()">Karta</button><button class="${stallVy === 'lista' ? 'active' : ''}" onclick="stallVy='lista';render()">Lista</button></div>`;
+  if (!bs.length) h += '<div class="empty">Inga boxar i det här stallet ännu.</div>';
+  else if (stallVy === 'karta') {
+    const kol = sida => bs.filter(b => (b.sida || 'v') === sida).sort((a, b) => (a.ordning ?? 0) - (b.ordning ?? 0));
+    const boxKort = (b, i, n) => `<div class="box ${boxBelagd(b) ? '' : 'ledig'}" onclick="dlgBox('${b.id}')" title="${esc(b.anteckning)}">
+        ${boxBelagd(b) ? `<span class="bet ${b.betalt ? '' : 'ej'}" title="${b.betalt ? 'Betalt' : 'Inte betalt'}"></span>` : ''}
+        <div class="nr"><b>${esc(b.nr)}</b> ${esc(STORLEK[b.storlek] || b.storlek || '')}</div>
+        ${boxBelagd(b) ? `<div class="hast">${esc(b.hast) || '<span class="hint">häst saknas</span>'}</div><div class="ryt">${esc(b.ryttare)}${b.foretag ? ` · ${esc(b.foretag)}` : ''}</div>` : '<div class="ryt">Ledig</div>'}
+        <span class="ops" onclick="event.stopPropagation()"><button class="iconbtn" title="Flytta upp" onclick="flyttaBox('${b.id}',-1)" ${i === 0 ? 'disabled' : ''}>↑</button><button class="iconbtn" title="Flytta ner" onclick="flyttaBox('${b.id}',1)" ${i === n - 1 ? 'disabled' : ''}>↓</button></span></div>`;
+    const v = kol('v'), hh = kol('h');
+    h += `<div class="stallkarta"><div class="kol">${v.map((b, i) => boxKort(b, i, v.length)).join('') || '<div class="hint" style="text-align:center;padding:20px 0">Inga boxar på vänster sida</div>'}</div><div class="gang"><span>Stallgång</span></div><div class="kol">${hh.map((b, i) => boxKort(b, i, hh.length)).join('') || '<div class="hint" style="text-align:center;padding:20px 0">Inga boxar på höger sida</div>'}</div></div>
+      <p class="hint" style="margin-top:12px">Boxarna står som i stallet, med gången i mitten. Klicka på en box för att ändra. Pilarna flyttar boxen upp eller ner på sin sida; sidan byts i boxens ruta.</p>`;
+  } else {
+    h += `<table><thead><tr><th>Box</th><th>Storlek</th><th>Ryttare</th><th>Häst</th><th>Företag</th><th>Avgift</th><th>Betalt</th><th>Övrigt</th><th></th></tr></thead><tbody>`;
+    for (const b of [...bs].sort(boxNr)) h += `<tr><td><b>${esc(b.nr)}</b></td><td>${esc(STORLEK[b.storlek] || b.storlek || '')}</td><td>${esc(b.ryttare)}</td><td>${esc(b.hast)}</td><td>${esc(b.foretag)}</td><td>${b.avgift !== '' && b.avgift != null ? kr(b.avgift) + ' kr' : ''}</td>
+      <td><input type="checkbox" ${b.betalt ? 'checked' : ''} onchange="toggleBetalt('${b.id}')" style="width:17px;height:17px;accent-color:var(--green)" title="Betalt"></td><td class="hint">${esc(b.anteckning)}</td>
+      <td style="white-space:nowrap"><span class="ops"><button class="iconbtn" onclick="dlgBox('${b.id}')">✎</button><button class="iconbtn danger" onclick="taBortBox('${b.id}')">🗑</button></span></td></tr>`;
+    h += `</tbody></table>`;
+  }
+  h += `</div><div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">stall och boxar</span></h2>${loggLista((state.logg || []).filter(r => r.typ === 'stall'), 'stall', false)}</div>`;
+  return h;
+}
+function dlgStall(sid) {
+  const st = sid ? stallById(sid) : null;
+  openDlg(`<h2>${st ? 'Redigera stall' : 'Nytt stall'}</h2>
+    <label class="f">Namn</label><input type="text" name="namn" value="${esc(st?.namn)}" required placeholder="T.ex. Tältstall 4">
+    <label class="f">Anteckning <span style="font-weight:400">(visas överst i stallet)</span></label><textarea name="anteckning" rows="3">${esc(st?.anteckning)}</textarea>
+    ${foot(st ? `<button type="button" class="btn danger" onclick="taBortStall('${st.id}')">Ta bort stall</button>` : '')}`,
+    f => {
+      const n = f.namn.value.trim(); if (!n) return false; const ant = f.anteckning.value.trim();
+      if (st) { const andr = []; if (n !== st.namn) andr.push(`döpte om stallet "${st.namn}" till "${n}"`); if (ant !== (st.anteckning || '')) andr.push(`ändrade anteckningen på ${n}`); st.namn = n; st.anteckning = ant; if (andr.length) logga(null, andr.join(', '), 'stall'); }
+      else { state.stall ||= []; const ny = { id: uid(), namn: n, anteckning: ant, ordning: state.stall.length }; state.stall.push(ny); valtStall = ny.id; logga(null, `skapade stallet "${n}"`, 'stall'); }
+      save(); render();
+    });
+}
+function taBortStall(sid) {
+  const st = stallById(sid); const n = boxarI(sid).length;
+  if (!confirm(`Ta bort ${st.namn}${n ? ` med ${n} boxar` : ''}?`)) return;
+  state.stall = state.stall.filter(s => s.id !== sid); state.boxar = (state.boxar || []).filter(b => b.stallId !== sid);
+  logga(null, `tog bort stallet "${st.namn}"${n ? ` med ${n} boxar` : ''}`, 'stall'); if (dlg.open) dlg.close(); valtStall = null; save(); render();
+}
+function nastaBoxNr(sid) { const n = boxarI(sid).map(b => parseFloat(b.nr)).filter(x => !isNaN(x)); return String(n.length ? Math.max(...n) + 1 : 1); }
+function dlgBox(bid, stallDefault) {
+  const b = bid ? boxById(bid) : null; const sid = b?.stallId || stallDefault || valtStall;
+  openDlg(`<h2>${b ? `Box ${esc(b.nr)} <span class="hint" style="font-weight:400;font-size:14px">${esc(stallById(b.stallId)?.namn)}</span>` : 'Ny box'}</h2>
+    <div class="two" style="gap:12px">
+      <div><label class="f">Stall</label><select name="stall">${(state.stall || []).map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${esc(s.namn)}</option>`).join('')}</select></div>
+      <div><label class="f">Boxnummer</label><input type="text" name="nr" value="${esc(b ? b.nr : nastaBoxNr(sid))}" required></div>
+      <div><label class="f">Storlek</label><select name="storlek">${Object.entries(STORLEK).map(([k, v]) => `<option value="${k}" ${(b?.storlek || 'stor') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+      <div><label class="f">Sida om stallgången</label><select name="sida"><option value="v" ${(b?.sida || 'v') === 'v' ? 'selected' : ''}>Vänster</option><option value="h" ${b?.sida === 'h' ? 'selected' : ''}>Höger</option></select></div>
+      <div><label class="f">Ryttare</label><input type="text" name="ryttare" value="${esc(b?.ryttare)}"></div>
+      <div><label class="f">Häst</label><input type="text" name="hast" value="${esc(b?.hast)}"></div>
+      <div><label class="f">Företag</label><input type="text" name="foretag" value="${esc(b?.foretag)}" placeholder="Om fakturan ska till ett företag"></div>
+      <div><label class="f">Avgift (kr)</label><input type="number" name="avgift" min="0" step="1" value="${esc(b?.avgift ?? '')}"></div>
+    </div>
+    <label class="f" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="betalt" ${b?.betalt ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Betalt</label>
+    <label class="f">Övrigt</label><input type="text" name="anteckning" value="${esc(b?.anteckning)}" placeholder="T.ex. vill inte ha torv, dopingbox, ridskolehäst">
+    ${foot(b ? `<button type="button" class="btn danger" onclick="taBortBox('${b.id}')">Ta bort box</button>` : '')}`,
+    f => {
+      const nr = f.nr.value.trim(); if (!nr) return false;
+      const d = { stallId: f.stall.value, nr, storlek: f.storlek.value, sida: f.sida.value, ryttare: f.ryttare.value.trim(), hast: f.hast.value.trim(), foretag: f.foretag.value.trim(), avgift: f.avgift.value === '' ? '' : Number(f.avgift.value), betalt: f.betalt.checked, anteckning: f.anteckning.value.trim() };
+      const dubbel = boxarI(d.stallId).find(x => x !== b && x.nr === nr && (x.storlek || 'stor') === d.storlek);
+      if (dubbel && !confirm(`Det finns redan en ${STORLEK[d.storlek].toLowerCase()} nummer ${nr} i ${stallById(d.stallId)?.namn}. Lägga in en till?`)) return false;
+      if (b) {
+        const andr = [];
+        if (d.stallId !== b.stallId || d.nr !== b.nr) andr.push(`flyttade ${b.hast || b.ryttare || 'boxen'} från ${boxText(b)} till ${stallById(d.stallId)?.namn} box ${nr}`);
+        if (d.hast !== (b.hast || '') || d.ryttare !== (b.ryttare || '')) andr.push(`${boxText({ ...b, ...d })}: ${d.hast || d.ryttare ? `${d.hast || 'häst saknas'} / ${d.ryttare || 'ryttare saknas'}` : 'tömde boxen'}${b.hast || b.ryttare ? ` (var ${b.hast || '–'} / ${b.ryttare || '–'})` : ''}`);
+        if (d.betalt !== !!b.betalt) andr.push(`${boxText({ ...b, ...d })}: ${d.betalt ? 'markerade som betald' : 'tog bort betalt-markeringen'}`);
+        if (d.avgift !== (b.avgift ?? '')) andr.push(`${boxText({ ...b, ...d })}: avgift ${d.avgift === '' ? 'tom' : kr(d.avgift) + ' kr'}`);
+        if (d.storlek !== (b.storlek || 'stor') || d.sida !== (b.sida || 'v') || d.foretag !== (b.foretag || '') || d.anteckning !== (b.anteckning || '')) andr.push(`${boxText({ ...b, ...d })}: ändrade uppgifterna`);
+        if (d.stallId !== b.stallId || d.sida !== (b.sida || 'v')) d.ordning = boxarI(d.stallId).filter(x => x !== b && (x.sida || 'v') === d.sida).length;
+        Object.assign(b, d); if (andr.length) logga(null, andr.join(', '), 'stall');
+      } else {
+        state.boxar ||= []; const ny = { id: uid(), ...d, ordning: boxarI(d.stallId).filter(x => (x.sida || 'v') === d.sida).length }; state.boxar.push(ny);
+        logga(null, `lade till ${boxText(ny)}${d.hast || d.ryttare ? ` med ${d.hast || 'häst saknas'} / ${d.ryttare || 'ryttare saknas'}` : ''}`, 'stall');
+      }
+      valtStall = d.stallId; save(); render();
+    }, true);
+}
+function taBortBox(bid) {
+  const b = boxById(bid); if (!confirm(`Ta bort ${boxText(b)}${b.hast ? ` (${b.hast})` : ''}?`)) return;
+  state.boxar = state.boxar.filter(x => x.id !== bid); logga(null, `tog bort ${boxText(b)}${b.hast ? ` (${b.hast})` : ''}`, 'stall'); if (dlg.open) dlg.close(); save(); render();
+}
+function toggleBetalt(bid) { const b = boxById(bid); b.betalt = !b.betalt; logga(null, `${boxText(b)}: ${b.betalt ? 'markerade som betald' : 'tog bort betalt-markeringen'}`, 'stall'); save(); render(); }
+function flyttaBox(bid, d) {
+  const b = boxById(bid); const kol = boxarI(b.stallId).filter(x => (x.sida || 'v') === (b.sida || 'v')).sort((x, y) => (x.ordning ?? 0) - (y.ordning ?? 0));
+  const i = kol.indexOf(b), j = i + d; if (j < 0 || j >= kol.length) return;
+  [kol[i], kol[j]] = [kol[j], kol[i]]; kol.forEach((x, n) => x.ordning = n); save(); render();
 }
 
 function vyPersoner() {
