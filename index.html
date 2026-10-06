@@ -110,7 +110,14 @@
   .task .txt { cursor: pointer; border-radius: 4px; margin: -2px -4px; padding: 2px 4px; }
   .task .txt:hover { background: var(--accent-soft); }
   .task .note { font-size: 13px; color: var(--muted); white-space: pre-wrap; margin: 4px 0 2px; padding-left: 8px; border-left: 2px solid var(--border); cursor: pointer; }
-  .task .who { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .task .who { font-size: 13px; color: var(--muted); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .task .who .chip { padding: 1px 8px; font-size: 12px; }
+  .filrad { display: flex; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  .filrad:first-of-type { border-top: 0; }
+  .filrad a { text-decoration: none; font-weight: 600; }
+  .filrad a:hover { text-decoration: underline; }
+  .filrad .hint { margin-left: auto; white-space: nowrap; }
+  .filrad .iconbtn { opacity: .35; } .filrad:hover .iconbtn { opacity: 1; }
   .task .who select { border: 0; background: transparent; color: var(--muted); padding: 0; font-size: 13px; cursor: pointer; }
   .task .who select:hover { color: var(--text); }
   .task .ops { display: flex; gap: 2px; opacity: .25; transition: opacity .1s; }
@@ -700,13 +707,51 @@ function vyOversikt() {
   return h;
 }
 
+/* ============ Filer (Supabase Storage, lagringsytan "filer") ============ */
+const FIL_BUCKET = 'filer', FIL_MAX = 50 * 1024 * 1024;
+const filUrl = path => sb ? sb.storage.from(FIL_BUCKET).getPublicUrl(path).data.publicUrl : '#';
+const storlekText = n => n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' kB' : n + ' B';
+const filAgare = (typ, id) => typ === 'kategori' ? sektById(id) : omrById(id);
+function loggaFil(typ, agare, text) {
+  if (typ === 'omrade') return logga(agare.id, text);
+  state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: agare.id, omradeId: null, omrade: '', text: `${text} på kategorin ${agare.namn}` });
+}
+function filerBlock(typ, agare) {
+  const filer = agare.filer || [];
+  return `<div class="block"><h2>Filer <span class="hint" style="font-weight:400">${filer.length ? `${filer.length} ${filer.length === 1 ? 'fil' : 'filer'}` : ''}</span>
+      <span class="right">${sb ? `<label class="btn small" style="cursor:pointer">+ Lägg till fil<input type="file" style="display:none" onchange="laddaUppFil('${typ}','${agare.id}',this)"></label>` : ''}</span></h2>
+    ${filer.map(f => `<div class="filrad"><a href="${esc(filUrl(f.path))}" target="_blank" rel="noopener">📎 ${esc(f.namn)}</a><span class="hint">${storlekText(f.storlek || 0)} · ${esc(f.vem)} · ${esc(tidStr(f.tid))}</span><button class="iconbtn danger" title="Ta bort filen" onclick="taBortFil('${typ}','${agare.id}','${f.id}')">🗑</button></div>`).join('')
+      || `<div class="empty">Inga filer ännu. Bifoga kartor, listor, bilder eller avtal.${sb ? '' : ' Filer kan bara laddas upp på den publika sidan.'}</div>`}</div>`;
+}
+async function laddaUppFil(typ, id, input) {
+  const fil = input.files[0]; input.value = ''; if (!fil) return;
+  if (!sb) return alert('Filer kan bara laddas upp på den publika sidan som är kopplad till databasen.');
+  if (fil.size > FIL_MAX) return alert('Filen är för stor. Max 50 MB per fil.');
+  const agare = filAgare(typ, id); if (!agare) return;
+  const safe = fil.name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.\-]+/g, '_').slice(-80);
+  const path = `${typ}/${id}/${uid()}-${safe}`;
+  toast('Laddar upp…');
+  const { error } = await sb.storage.from(FIL_BUCKET).upload(path, fil, { contentType: fil.type || 'application/octet-stream', upsert: false });
+  if (error) return alert(`Uppladdningen misslyckades: ${error.message}\n\nÄr lagringsytan "filer" skapad i Supabase? Se Tävlingssektionen-filer.sql.`);
+  agare.filer ||= []; agare.filer.push({ id: uid(), namn: fil.name, path, storlek: fil.size, typ: fil.type || '', tid: new Date().toISOString(), vem: vem || 'Okänd' });
+  loggaFil(typ, agare, `bifogade filen "${fil.name}"`);
+  save(); render();
+}
+async function taBortFil(typ, id, fid) {
+  const agare = filAgare(typ, id); const f = (agare.filer || []).find(x => x.id === fid); if (!f) return;
+  if (!confirm(`Ta bort filen "${f.namn}"?`)) return;
+  agare.filer = agare.filer.filter(x => x.id !== fid); loggaFil(typ, agare, `tog bort filen "${f.namn}"`); save(); render();
+  if (sb) { const { error } = await sb.storage.from(FIL_BUCKET).remove([f.path]); if (error) console.warn('Kunde inte ta bort filen i lagringen', error); }
+}
+
 function vySektion(id) {
   const s = sektById(id); if (!s) return go('oversikt');
   const os = omradenI(id);
   return `<div class="topbar"><div><h1>${esc(s.namn)}</h1><div class="sub">Kategori · ${os.length} områden</div></div>
     <div class="actions"><button class="btn" onclick="dlgSektion('${s.id}')">Byt namn</button><button class="btn primary" onclick="dlgOmrade(null,'${s.id}')">+ Nytt område</button></div></div>
     <div class="grid">${os.map(omradeKort).join('') || '<div class="empty">Inga områden ännu.</div>'}</div>
-    <div class="block" style="margin-top:24px"><h2>Ändringslogg <span class="hint" style="font-weight:400">allt som gjorts i kategorin, och av vem</span></h2>
+    <div style="margin-top:24px">${filerBlock('kategori', s)}</div>
+    <div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">allt som gjorts i kategorin, och av vem</span></h2>
       ${loggLista((state.logg || []).filter(r => r.kategoriId === id), 'k' + id, true)}</div>`;
 }
 
@@ -739,6 +784,7 @@ function vyOmrade(id) {
       <div class="hint">Ett schema har sina egna dagar. I varje dag lägger du pass med tid och personer.</div>
       ${o.scheman.map(sc => schemaBlock(o, sc)).join('') || '<div class="empty" style="margin-top:8px">Inget schema ännu. Skapa ett och välj vilka dagar det gäller.</div>'}
     </div>
+    ${filerBlock('omrade', o)}
     <div class="block"><h2>Ändringslogg</h2>${loggLista((state.logg || []).filter(r => r.omradeId === o.id), 'o' + o.id, false)}</div>
   </div></div>`;
   return h;
@@ -822,10 +868,11 @@ function uppgiftRad(o, u, i) {
     <input type="checkbox" ${u.klar ? 'checked' : ''} onchange="toggleUppgift('${o.id}','${u.id}')">
     <div class="t"><div class="txt" onclick="dlgUppgift('${o.id}','${u.id}')" title="Klicka för att skriva en anteckning">${esc(u.text)}</div>
       ${u.anteckning ? `<div class="note" onclick="dlgUppgift('${o.id}','${u.id}')">${anteckningHtml(u.anteckning)}</div>` : ''}
-      <div class="who">Ansvarig:<select onchange="sattAnsvarig('${o.id}','${u.id}',this.value)">
-        <option value="">ingen</option>
-        ${state.personer.map(p => `<option value="${p.id}" ${u.ansvarig === p.id ? 'selected' : ''}>${esc(p.namn)}</option>`).join('')}
-      </select></div></div>
+      <div class="who">Ansvarig:${uppAnsv(u).map(pid => `<span class="chip">${esc(namn(pid))}<span class="x" title="Ta bort som ansvarig" onclick="taBortUppAnsv('${o.id}','${u.id}','${pid}')">✕</span></span>`).join('')}
+        <select onchange="laggTillUppAnsv('${o.id}','${u.id}',this.value)" style="width:auto">
+          <option value="">${uppAnsv(u).length ? '+ fler' : 'ingen, välj…'}</option>
+          ${state.personer.filter(p => !uppAnsv(u).includes(p.id)).map(p => `<option value="${p.id}">${esc(p.namn)}</option>`).join('')}
+        </select></div></div>
     <div class="ops">
       <button class="iconbtn" title="Flytta upp" onclick="flyttaUppgift('${o.id}',${i},-1)" ${i === 0 ? 'disabled' : ''}>↑</button>
       <button class="iconbtn" title="Flytta ner" onclick="flyttaUppgift('${o.id}',${i},1)" ${i === o.uppgifter.length - 1 ? 'disabled' : ''}>↓</button>
@@ -1125,7 +1172,7 @@ function vyPersoner() {
   h += `<div class="block" style="padding:0 0 0"><table><thead><tr><th>Namn</th><th>Telefon</th><th>Ansvarig för område</th><th>Uppgifter</th><th>Pass</th><th>Anteckning</th><th></th></tr></thead><tbody>`;
   for (const p of pers) {
     const omr = state.omraden.filter(o => o.ansvariga.includes(p.id));
-    const upp = state.omraden.flatMap(o => o.uppgifter.filter(u => u.ansvarig === p.id).map(u => ({ ...u, o })));
+    const upp = state.omraden.flatMap(o => o.uppgifter.filter(u => uppAnsv(u).includes(p.id)).map(u => ({ ...u, o })));
     const mina = pass.filter(x => x.personer.includes(p.id));
     h += `<tr><td style="white-space:nowrap"><span class="avatar">${esc(initialer(p.namn))}</span> <b>${esc(p.namn)}</b></td>
       <td>${p.telefon ? `<a href="tel:${esc(p.telefon)}">${esc(p.telefon)}</a>` : '<span class="hint">–</span>'}</td>
@@ -1178,7 +1225,11 @@ document.addEventListener('click', e => {
 });
 function laggTillUppgift(oid, text) { text = text.trim(); if (!text) return; omrById(oid).uppgifter.push({ id: uid(), text, anteckning: '', ansvarig: null, klar: false }); logga(oid, `lade till uppgiften "${text}"`); save(); render(); }
 function toggleUppgift(oid, uid_) { const u = omrById(oid).uppgifter.find(u => u.id === uid_); u.klar = !u.klar; logga(oid, `${u.klar ? 'bockade av' : 'öppnade igen'} uppgiften "${u.text}"`); save(); render(); }
-function sattAnsvarig(oid, uid_, pid) { const u = omrById(oid).uppgifter.find(u => u.id === uid_); const fore = u.ansvarig; u.ansvarig = pid || null; if (fore !== u.ansvarig) logga(oid, pid ? `satte ${namn(pid)} som ansvarig för uppgiften "${u.text}"${fore ? ` (var ${namn(fore)})` : ''}` : `tog bort ${namn(fore)} som ansvarig för uppgiften "${u.text}"`); save(); render(); }
+// En uppgift kan ha flera ansvariga. Äldre uppgifter har ett enda "ansvarig"-fält; det läses som en lista.
+function uppAnsv(u) { return u.ansvariga || (u.ansvarig ? [u.ansvarig] : []); }
+function sattUppAnsv(u, lista) { u.ansvariga = lista; delete u.ansvarig; }
+function laggTillUppAnsv(oid, uid_, pid) { if (!pid) return; const u = omrById(oid).uppgifter.find(u => u.id === uid_); if (uppAnsv(u).includes(pid)) return render(); sattUppAnsv(u, [...uppAnsv(u), pid]); logga(oid, `satte ${namn(pid)} som ansvarig för uppgiften "${u.text}"`); save(); render(); }
+function taBortUppAnsv(oid, uid_, pid) { const u = omrById(oid).uppgifter.find(u => u.id === uid_); sattUppAnsv(u, uppAnsv(u).filter(x => x !== pid)); logga(oid, `tog bort ${namn(pid)} som ansvarig för uppgiften "${u.text}"`); save(); render(); }
 function flyttaUppgift(oid, i, d) { const a = omrById(oid).uppgifter; const j = i + d; if (j < 0 || j >= a.length) return;[a[i], a[j]] = [a[j], a[i]]; save(); render(); }
 function taBortUppgift(oid, uid_) { const o = omrById(oid); const u = o.uppgifter.find(u => u.id === uid_); if (!confirm(`Ta bort uppgiften "${u.text}"?`)) return; o.uppgifter = o.uppgifter.filter(u => u.id !== uid_); logga(oid, `tog bort uppgiften "${u.text}"`); save(); render(); }
 function taBortOmrade(oid) { const o = omrById(oid); if (!confirm(`Ta bort området "${o.namn}" med ${o.uppgifter.length} uppgifter och ${o.scheman.length} scheman?`)) return; logga(oid, `tog bort området "${o.namn}" med ${o.uppgifter.length} uppgifter och ${o.scheman.length} scheman`); state.omraden = state.omraden.filter(x => x.id !== oid); save(); go('oversikt'); }
@@ -1195,7 +1246,7 @@ function taBortPerson(pid) {
   for (const o of state.omraden) {
     let rorde = o.ansvariga.includes(pid);
     o.ansvariga = o.ansvariga.filter(x => x !== pid);
-    for (const u of o.uppgifter) if (u.ansvarig === pid) { u.ansvarig = null; rorde = true; }
+    for (const u of o.uppgifter) if (uppAnsv(u).includes(pid)) { sattUppAnsv(u, uppAnsv(u).filter(x => x !== pid)); rorde = true; }
     for (const s of o.scheman) for (const ps of s.pass) if (ps.personer.includes(pid)) { ps.personer = ps.personer.filter(x => x !== pid); rorde = true; }
     if (rorde) logga(o.id, `tog bort personen ${p.namn} (plockades bort från områdets ansvariga, uppgifter och pass)`);
   }
@@ -1225,7 +1276,7 @@ function openDlg(html, onSubmit, stor) {
   dlg.showModal();
   const first = form.querySelector('input[type=text],textarea'); if (first) { first.focus(); first.select?.(); }
 }
-const foot = (extra = '') => `<div class="foot">${extra}<div class="r"><button class="btn" value="cancel">Avbryt</button><button class="btn primary">Spara</button></div></div>`;
+const foot = (extra = '') => `<div class="foot">${extra}<div class="r"><button type="button" class="btn" onclick="dlg.close()">Avbryt</button><button class="btn primary">Spara</button></div></div>`;
 const personPick = (valda, namnAttr = 'personer') => `<div class="chips">${state.personer.length ? state.personer.map(p =>
   `<label class="chip pick ${valda.includes(p.id) ? 'on' : ''}"><input type="checkbox" name="${namnAttr}" value="${p.id}" ${valda.includes(p.id) ? 'checked' : ''} style="display:none" onchange="this.parentElement.classList.toggle('on',this.checked)">${esc(p.namn)}</label>`).join('')
   : '<span class="hint">Inga personer ännu. Lägg till under Personer.</span>'}</div>`;
@@ -1268,20 +1319,22 @@ function dlgOmrade(oid, sidDefault) {
 function dlgUppgift(oid, uid_) {
   const o = omrById(oid); const u = o.uppgifter.find(u => u.id === uid_);
   openDlg(`<h2>Uppgift <span class="hint" style="font-weight:400;font-size:14px">${esc(o.namn)}</span></h2>
-    <div class="two" style="gap:12px;margin-bottom:4px"><div><label class="f">Uppgift</label><input type="text" name="text" value="${esc(u.text)}" required></div>
-    <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end"><div><label class="f">Ansvarig</label><select name="ansvarig"><option value="">Ingen</option>${state.personer.map(p => `<option value="${p.id}" ${u.ansvarig === p.id ? 'selected' : ''}>${esc(p.namn)}</option>`).join('')}</select></div>
-    <label class="f" style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" name="klar" ${u.klar ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Klar</label></div></div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end;margin-bottom:4px"><div><label class="f">Uppgift</label><input type="text" name="text" value="${esc(u.text)}" required></div>
+    <label class="f" style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" name="klar" ${u.klar ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Klar</label></div>
+    <label class="f">Ansvariga <span style="font-weight:400">(klicka för att välja, flera går bra)</span></label>${personPick(uppAnsv(u), 'ansvariga')}
     <div class="vax"><label class="f">Anteckning <span style="font-weight:400">· rader som börjar med - blir punktlista</span></label>
     <textarea name="anteckning" class="stor" placeholder="Skriv fritt: listor, beskrivningar, vad som är bestämt, vem som sa vad, vad som är kvar…\n\n- punkt ett\n- punkt två">${esc(u.anteckning)}</textarea></div>${foot()}`,
     f => {
       const t = f.text.value.trim(); if (!t) return false;
-      const ant = f.anteckning.value.trim(), ansv = f.ansvarig.value || null, klar = f.klar.checked;
+      const ant = f.anteckning.value.trim(), ansv = checked(f, 'ansvariga'), klar = f.klar.checked;
       const andr = [];
       if (t !== u.text) andr.push(`ändrade uppgiften "${u.text}" till "${t}"`);
       if (ant !== (u.anteckning || '')) andr.push(`${u.anteckning ? 'ändrade' : 'skrev'} anteckningen på uppgiften "${t}"`);
-      if (ansv !== (u.ansvarig || null)) andr.push(ansv ? `satte ${namn(ansv)} som ansvarig för uppgiften "${t}"${u.ansvarig ? ` (var ${namn(u.ansvarig)})` : ''}` : `tog bort ${namn(u.ansvarig)} som ansvarig för uppgiften "${t}"`);
+      const in_ = ansv.filter(x => !uppAnsv(u).includes(x)), ut = uppAnsv(u).filter(x => !ansv.includes(x));
+      if (in_.length) andr.push(`satte ${namnLista(in_)} som ansvarig för uppgiften "${t}"`);
+      if (ut.length) andr.push(`tog bort ${namnLista(ut)} som ansvarig för uppgiften "${t}"`);
       if (klar !== !!u.klar) andr.push(`${klar ? 'bockade av' : 'öppnade igen'} uppgiften "${t}"`);
-      u.text = t; u.anteckning = ant; u.ansvarig = ansv; u.klar = klar;
+      u.text = t; u.anteckning = ant; sattUppAnsv(u, ansv); u.klar = klar;
       if (andr.length) logga(oid, andr.join(', '));
       save(); render();
     }, true);
@@ -1408,7 +1461,7 @@ function dlgVem(forsta) {
     <p class="hint" style="margin-top:0">Namnet skrivs i ändringsloggen på allt du gör, så att alla ser vem som ändrat vad. Det sparas i den här webbläsaren tills du byter.</p>
     <div class="chips" style="margin-top:10px">${namnen.map(n => `<span class="chip pick ${n === vem ? 'on' : ''}" onclick="this.closest('form').namn.value='${esc(n).replace(/'/g, '&#39;')}';this.closest('form').requestSubmit()">${esc(n)}</span>`).join('')}</div>
     <label class="f">Eller skriv ett namn</label><input type="text" name="namn" value="${esc(vem)}" placeholder="Ditt namn">
-    <div class="foot"><div class="r">${forsta ? '' : '<button class="btn" value="cancel">Avbryt</button>'}<button class="btn primary">Det är jag</button></div></div>`,
+    <div class="foot"><div class="r">${forsta ? '' : '<button type="button" class="btn" onclick="dlg.close()">Avbryt</button>'}<button class="btn primary">Det är jag</button></div></div>`,
     f => { const n = f.namn.value.trim(); if (!n) { alert('Skriv eller välj ett namn.'); return false; } sattVem(n); toast(`Hej ${n}!`); });
   if (forsta) dlg.addEventListener('cancel', e => e.preventDefault(), { once: false });
 }
