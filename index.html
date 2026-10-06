@@ -47,7 +47,10 @@
   .nav button.active { background: rgba(255,255,255,.16); color: #fff; font-weight: 600; box-shadow: inset 3px 0 0 var(--yellow); }
   .nav .count { margin-left: auto; color: rgba(255,255,255,.5); font-size: 12px; }
   .nav h4 { margin: 18px 10px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.5); font-weight: 600; }
-  .nav .sub button { padding-left: 22px; font-size: 14px; }
+  .nav .sub button { padding-left: 26px; font-size: 14px; }
+  .nav .sub button.kat { padding-left: 10px; font-weight: 600; font-size: 15px; }
+  .nav .sub .pil { width: 12px; color: rgba(255,255,255,.5); font-size: 12px; display: inline-block; }
+  .nav .sub.oppen { background: rgba(255,255,255,.04); border-radius: 8px; padding-bottom: 4px; margin-bottom: 2px; }
   .nav button.laggtill { color: var(--yellow); font-weight: 600; margin-top: 6px; font-size: 14px; }
   .nav button.laggtill:hover { background: rgba(240,220,60,.12); }
   .nav .plus { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--yellow); align-items: center; justify-content: center; font-size: 15px; line-height: 1; }
@@ -629,7 +632,16 @@ function avatarChip(pid, removable) {
 
 /* ============ Routing ============ */
 let route = { view: 'oversikt' };
-function go(view, params = {}) { route = { view, ...params }; render(); window.scrollTo(0, 0); }
+let oppenKat = null;
+const stallKategori = () => state.sektioner.find(s => s.stall);
+function katForRoute(r) {
+  if (r.view === 'sektion') return r.id;
+  if (r.view === 'omrade') return omrById(r.id)?.sektionId || null;
+  if (r.view === 'uppstallning') return stallKategori()?.id || null;
+  return null;
+}
+function go(view, params = {}) { route = { view, ...params }; const k = katForRoute(route); if (k) oppenKat = k; render(); window.scrollTo(0, 0); }
+function klickKategori(id) { oppenKat = id; go('sektion', { id }); }
 
 /* ============ Navigering ============ */
 function renderNav() {
@@ -639,14 +651,18 @@ function renderNav() {
     <button class="${act('oversikt')}" onclick="go('oversikt')">🏠 Översikt ${anslagBadge()}</button>
     <button class="${act('schema')}" onclick="go('schema')">📅 Schema <span class="count">${allaPass().length}</span></button>
     <button class="${act('klasser')}" onclick="go('klasser')">🏇 Klasser <span class="count">${(state.klasser || []).length}</span></button>
-    <button class="${act('uppstallning')}" onclick="go('uppstallning')">🐴 Uppstallning <span class="count">${(state.boxar || []).length}</span></button>
+    ${stallKategori() ? '' : `<button class="${act('uppstallning')}" onclick="go('uppstallning')">🐴 Uppstallning <span class="count">${(state.boxar || []).length}</span></button>`}
     <button class="${act('personer')}" onclick="go('personer')">👥 Personer <span class="count">${state.personer.length}</span></button>
-    <h4>Kategorier och områden</h4>`;
+    <h4>Kategorier</h4>`;
   for (const s of state.sektioner) {
-    const os = omradenI(s.id);
-    h += `<div class="sub">`;
-    h += `<button class="${act('sektion', { id: s.id })}" onclick="go('sektion',{id:'${s.id}'})" style="padding-left:10px;font-weight:600">${esc(s.namn)}</button>`;
-    for (const o of os) h += `<button class="${act('omrade', { id: o.id })}" onclick="go('omrade',{id:'${o.id}'})">${esc(o.namn)}</button>`;
+    const os = omradenI(s.id); const oppen = oppenKat === s.id;
+    h += `<div class="sub ${oppen ? 'oppen' : ''}">`;
+    h += `<button class="kat ${act('sektion', { id: s.id })}" onclick="klickKategori('${s.id}')"><span class="pil">${oppen ? '▾' : '▸'}</span>${esc(s.namn)}<span class="count">${os.length + (s.stall ? 1 : 0)}</span></button>`;
+    if (oppen) {
+      if (s.stall) h += `<button class="${act('uppstallning')}" onclick="go('uppstallning')">🐴 Stall och boxar <span class="count">${(state.boxar || []).length}</span></button>`;
+      for (const o of os) h += `<button class="${act('omrade', { id: o.id })}" onclick="go('omrade',{id:'${o.id}'})">${esc(o.namn)}</button>`;
+      if (!os.length && !s.stall) h += `<div class="hint" style="padding:4px 22px 8px">Inga områden ännu</div>`;
+    }
     h += `</div>`;
   }
   h += `<button class="laggtill" onclick="dlgSektion()" title="Ny kategori"><span class="plus">+</span> Lägg till kategori</button>`;
@@ -749,7 +765,8 @@ function vySektion(id) {
   const os = omradenI(id);
   return `<div class="topbar"><div><h1>${esc(s.namn)}</h1><div class="sub">Kategori · ${os.length} områden</div></div>
     <div class="actions"><button class="btn" onclick="dlgSektion('${s.id}')">Byt namn</button><button class="btn primary" onclick="dlgOmrade(null,'${s.id}')">+ Nytt område</button></div></div>
-    <div class="grid">${os.map(omradeKort).join('') || '<div class="empty">Inga områden ännu.</div>'}</div>
+    <div class="grid">${s.stall ? `<div class="card click" onclick="go('uppstallning')"><h3>🐴 Stall och boxar</h3><div class="desc">Vilka som står var: kartor och listor per stall, med ryttare, häst, avgift och betalt.</div>
+      <div class="meta"><span>${(state.stall || []).length} stall</span><span>${(state.boxar || []).length} boxar</span><span>${(state.boxar || []).filter(boxBelagd).length} belagda</span><span>${(state.boxar || []).filter(b => boxBelagd(b) && b.betalt).length} betalda</span></div></div>` : ''}${os.map(omradeKort).join('') || (s.stall ? '' : '<div class="empty">Inga områden ännu.</div>')}</div>
     <div style="margin-top:24px">${filerBlock('kategori', s)}</div>
     <div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">allt som gjorts i kategorin, och av vem</span></h2>
       ${loggLista((state.logg || []).filter(r => r.kategoriId === id), 'k' + id, true)}</div>`;
@@ -1058,7 +1075,8 @@ function vyUppstallning() {
   const stall = state.stall || [], boxar = state.boxar || [];
   if (!valtStall || !stallById(valtStall)) valtStall = stall[0]?.id || null;
   const belagda = boxar.filter(boxBelagd), betalda = belagda.filter(b => b.betalt);
-  let h = `<div class="topbar"><div><h1>Uppstallning</h1><div class="sub">${stall.length} stall · ${boxar.length} boxar · ${belagda.length} belagda · ${betalda.length} betalda</div></div>
+  const kat = stallKategori();
+  let h = `<div class="topbar"><div>${kat ? `<div class="hint" style="cursor:pointer" onclick="go('sektion',{id:'${kat.id}'})">${esc(kat.namn)} ›</div>` : ''}<h1>Stall och boxar</h1><div class="sub">${stall.length} stall · ${boxar.length} boxar · ${belagda.length} belagda · ${betalda.length} betalda</div></div>
     <div class="actions"><button class="btn" onclick="window.print()">Skriv ut</button><button class="btn" onclick="dlgStall()">+ Nytt stall</button><button class="btn primary" onclick="dlgBox(null, valtStall)" ${stall.length ? '' : 'disabled'}>+ Ny box</button></div></div>`;
   h += `<div style="margin-bottom:14px"><input type="text" value="${esc(boxSok)}" placeholder="Sök ryttare, häst eller företag i alla stall…" oninput="boxSok=this.value;render();const i=document.getElementById('boxSokFalt');i.focus();i.setSelectionRange(i.value.length,i.value.length)" id="boxSokFalt" style="max-width:420px"></div>`;
   if (boxSok.trim()) {
@@ -1288,10 +1306,12 @@ function dlgSektion(sid) {
   const s = sid ? sektById(sid) : null;
   openDlg(`<h2>${s ? 'Byt namn på kategori' : 'Ny kategori'}</h2>
     <label class="f">Namn</label><input type="text" name="namn" value="${esc(s?.namn)}" required placeholder="T.ex. Sekretariat">
-    <p class="hint">En kategori samlar flera områden, som Mat samlar Kiosk, Grill och Frukostbuffé. Har kategorin bara ett område kan det heta samma sak, som Parkering.</p>${foot()}`,
-    f => { const n = f.namn.value.trim(); if (!n) return false;
-      if (s) { if (n !== s.namn) { const g = s.namn; s.namn = n; state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: s.id, omradeId: null, omrade: '', text: `döpte om kategorin "${g}" till "${n}"` }); } }
-      else { const ny = { id: uid(), namn: n }; state.sektioner.push(ny); state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: ny.id, omradeId: null, omrade: '', text: `skapade kategorin "${n}"` }); }
+    <p class="hint">En kategori samlar flera områden, som Mat samlar Kiosk, Grill och Frukostbuffé. Har kategorin bara ett område kan det heta samma sak, som Parkering.</p>
+    <label class="f" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="stall" ${s?.stall ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Stall och boxar ligger under den här kategorin</label>${foot()}`,
+    f => { const n = f.namn.value.trim(); if (!n) return false; const st = f.stall.checked;
+      if (st) for (const x of state.sektioner) if (x !== s && x.stall) delete x.stall;
+      if (s) { if (n !== s.namn) { const g = s.namn; s.namn = n; state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: s.id, omradeId: null, omrade: '', text: `döpte om kategorin "${g}" till "${n}"` }); } if (st) s.stall = true; else delete s.stall; }
+      else { const ny = { id: uid(), namn: n }; if (st) ny.stall = true; state.sektioner.push(ny); state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: ny.id, omradeId: null, omrade: '', text: `skapade kategorin "${n}"` }); oppenKat = ny.id; }
       save(); render(); });
 }
 function dlgOmrade(oid, sidDefault) {
