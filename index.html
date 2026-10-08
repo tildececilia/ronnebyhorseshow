@@ -252,7 +252,7 @@
   .soklista .rad:hover { background: rgba(0,0,0,.02); }
   .soklista .rad:first-child { border-top: 0; }
   @media (max-width: 700px) { .stallkarta { grid-template-columns: 1fr 30px 1fr; } }
-  .klasstabell td:nth-child(10) { max-width: 220px; }
+  .klasstabell td:last-child { width: 70px; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
   .hint { color: var(--muted); font-size: 13px; }
@@ -1050,14 +1050,11 @@ function vyKlasser() {
     const kd = klasser.filter(k => k.dag === d);
     h += `<div class="section-head"><h2>${esc(dag(d)?.label || d)}</h2><div class="line"></div><span class="hint">${kd.length} klasser</span></div>
       <div class="block" style="padding:0;overflow:auto"><table class="klasstabell"><thead><tr>
-        <th>Klass</th><th>Avd</th><th>Nivå</th><th>Höjd</th><th>Bedömning</th><th title="Rosett">Ros.</th><th title="Avgift tillbaka">Avg. tillb.</th><th title="Hederspris">Hed.</th><th>Prispengar</th><th>Info</th><th>Avgift</th><th title="Efteranmälningsavgift">E.avg</th><th>Sponsor</th><th></th>
+        <th>Klass</th><th>Avd</th><th>Höjd</th><th>Bedömning</th><th></th>
       </tr></thead><tbody>`;
     for (const k of kd) {
-      const ja = v => v ? '<span style="color:var(--green);font-weight:700">Ja</span>' : '<span class="hint">–</span>';
-      h += `<tr onclick="dlgKlass('${k.id}')" style="cursor:pointer">
-        <td><b>${esc(k.nr)}</b></td><td>${esc(k.avd)}</td><td>${esc(k.niva)}</td><td>${esc(k.hojd)}</td><td>${esc(k.bedomning)}</td>
-        <td>${ja(k.rosett)}</td><td>${ja(k.avgTillbaka)}</td><td>${ja(k.hederspris)}</td>
-        <td style="white-space:nowrap">${esc(k.prispeng)}</td><td>${esc(k.info)}</td><td>${kr(k.avgift)}</td><td>${kr(k.eavgift)}</td><td>${esc(k.sponsor)}</td>
+      h += `<tr onclick="dlgKlass('${k.id}')" style="cursor:pointer" title="Klicka för att se och ändra alla uppgifter om klassen">
+        <td><b>Klass ${esc(k.nr)}</b></td><td>${esc(k.avd)}</td><td>${k.hojd ? esc(k.hojd) + ' cm' : ''}</td><td>${esc(k.bedomning)}</td>
         <td style="white-space:nowrap" onclick="event.stopPropagation()"><span class="ops"><button class="iconbtn" title="Redigera" onclick="dlgKlass('${k.id}')">✎</button><button class="iconbtn danger" title="Ta bort" onclick="taBortKlass('${k.id}')">🗑</button></span></td></tr>`;
     }
     h += `</tbody></table></div>`;
