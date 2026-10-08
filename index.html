@@ -621,7 +621,10 @@ function allaPass() {
       const bas = { dag: r.dag, start: '', slut: '', klass: label, bana: true, radId: r.id, omrade: bomr, schema: { id: 'banschema', namn: r.typ === 'ombyggnad' ? 'Ombyggnad' : 'Banschema' } };
       if (r.typ === 'klass') {
         for (const roll of banRoller()) ut.push({ ...bas, id: r.id + ':' + roll.id, personer: banRollPersoner(r, roll), anteckning: roll.namn });
-      } else ut.push({ ...bas, id: r.id + ':p', personer: r.personer || [], anteckning: r.typ === 'ombyggnad' ? 'Ombyggnad' : '' });
+      } else {
+        if (r.typ === 'ombyggnad') { const chef = ombyggnadsRoll(); const v = chef ? banRollPersoner(r, chef) : []; if (v.length) ut.push({ ...bas, id: r.id + ':' + chef.id, personer: v, anteckning: chef.namn + ' ombyggnad' }); }
+        ut.push({ ...bas, id: r.id + ':p', personer: r.personer || [], anteckning: r.typ === 'ombyggnad' ? 'Ombyggnad' : '' });
+      }
     }
   }
   return ut;
@@ -1137,6 +1140,8 @@ function taBortKlass(kid) {
 const BANROLLER_STANDARD = [{ id: 'banchef', namn: 'Banchef', flera: false }, { id: 'inslapp', namn: 'Insläpp', flera: false }, { id: 'utslapp', namn: 'Utsläpp', flera: false }, { id: 'banpersonal', namn: 'Banpersonal', flera: true }];
 const banRoller = () => (state.tavling.banroller && state.tavling.banroller.length) ? state.tavling.banroller : BANROLLER_STANDARD;
 const banRollNamn = id => banRoller().find(r => r.id === id)?.namn || id;
+// Rollen som kan sättas på en ombyggnad: Banchef om den finns, annars första enpersonsrollen.
+const ombyggnadsRoll = () => banRoller().find(r => r.id === 'banchef') || banRoller().find(r => !r.flera) || null;
 const banRollPersoner = (r, roll) => roll.flera ? (Array.isArray(r[roll.id]) ? r[roll.id] : (r[roll.id] ? [r[roll.id]] : [])) : (Array.isArray(r[roll.id]) ? r[roll.id].slice(0, 1) : (r[roll.id] ? [r[roll.id]] : []));
 const banaKategori = () => state.sektioner.find(s => s.bana);
 const banradById = id => (state.banrader || []).find(r => r.id === id);
@@ -1165,11 +1170,11 @@ function vyBanschema() {
       ${klasserDag.length ? `<p class="hint">Det finns ${klasserDag.length} klasser inlagda för dagen under Klasser.</p><button class="btn" onclick="banFyll('${banDag}')">Fyll i från klasserna, med ombyggnad emellan</button>` : '<p class="hint">Lägg in dagens klasser under Klasser först, så kan schemat fyllas i automatiskt. Eller lägg till rader för hand med knapparna ovan.</p>'}</div>`;
     return h + banLogg();
   }
-  const sel = (r, falt) => { const v = Array.isArray(r[falt]) ? r[falt][0] : r[falt]; return `<select class="${v ? '' : 'tom'}" onchange="banSatt('${r.id}','${falt}',this.value)"><option value="">${v ? 'ingen' : 'välj…'}</option>${state.personer.map(p => `<option value="${p.id}" ${v === p.id ? 'selected' : ''}>${esc(p.namn)}</option>`).join('')}</select>`; };
+  const sel = (r, falt, valfri) => { const v = Array.isArray(r[falt]) ? r[falt][0] : r[falt]; return `<select class="${v || valfri ? '' : 'tom'}" onchange="banSatt('${r.id}','${falt}',this.value)"><option value="">${v ? 'ingen' : valfri ? 'banchef…' : 'välj…'}</option>${state.personer.map(p => `<option value="${p.id}" ${v === p.id ? 'selected' : ''}>${esc(p.namn)}</option>`).join('')}</select>`; };
   const multi = (r, falt) => { const lista = Array.isArray(r[falt]) ? r[falt] : (r[falt] ? [r[falt]] : []); return `<div class="chips">${lista.map(pid => `<span class="chip">${esc(namn(pid))}<span class="x" title="Ta bort" onclick="banTaBortPerson('${r.id}','${falt}','${pid}')">✕</span></span>`).join('')}
     <select onchange="banLaggTillPerson('${r.id}','${falt}',this.value)" class="${lista.length ? '' : 'tom'}"><option value="">${lista.length ? '+ fler' : 'välj…'}</option>${state.personer.filter(p => !lista.includes(p.id)).map(p => `<option value="${p.id}">${esc(p.namn)}</option>`).join('')}</select></div>`; };
   const ops = (r, i) => `<td class="ops"><button class="iconbtn" title="Flytta upp" onclick="banFlytta('${r.id}',-1)" ${i === 0 ? 'disabled' : ''}>↑</button><button class="iconbtn" title="Flytta ner" onclick="banFlytta('${r.id}',1)" ${i === rader.length - 1 ? 'disabled' : ''}>↓</button>${r.typ === 'klass' ? `<button class="iconbtn" title="Lägg till ombyggnad efter" onclick="banLaggTillRad('${banDag}','ombyggnad','${r.id}')">⤵</button>` : ''}<button class="iconbtn" title="Redigera" onclick="dlgBanrad('${banDag}','${r.typ}','${r.id}')">✎</button><button class="iconbtn danger" title="Ta bort raden" onclick="banRadBort('${r.id}')">🗑</button></td>`;
-  const roller = banRoller();
+  const roller = banRoller(); const ombRoll = ombyggnadsRoll();
   h += `<div class="block" style="padding:0;overflow:auto"><table class="bantabell"><thead><tr><th></th><th>Klass</th>${roller.map(r => `<th>${esc(r.namn)}</th>`).join('')}<th></th></tr></thead><tbody>`;
   let n = 0;
   rader.forEach((r, i) => {
@@ -1178,7 +1183,17 @@ function vyBanschema() {
       h += `<tr><td class="nr">${n}</td><td class="klass">${esc(k ? `Klass ${k.nr}` : (r.text || 'Klass'))}<small>${k ? esc([k.hojd ? k.hojd + ' cm' : '', k.avd ? 'Avd ' + k.avd : '', k.bedomning].filter(Boolean).join(' · ')) : ''}</small>${r.anteckning ? `<span class="note">${esc(r.anteckning)}</span>` : ''}</td>
         ${roller.map(roll => `<td>${roll.flera ? multi(r, roll.id) : sel(r, roll.id)}</td>`).join('')}${ops(r, i)}</tr>`;
     } else {
-      h += `<tr class="${r.typ}"><td class="nr"></td><td class="klass">${esc(r.typ === 'ombyggnad' ? 'Ombyggnad' : (r.text || 'Annat'))}${r.anteckning ? `<span class="note">${esc(r.anteckning)}</span>` : ''}</td><td colspan="${roller.length}">${multi(r, 'personer')}</td>${ops(r, i)}</tr>`;
+      // Ombyggnad: banchefen i sin kolumn, ombyggnadspersonalen i resten av raden. Annat: bara personer.
+      const chef = r.typ === 'ombyggnad' ? ombRoll : null; const ci = chef ? roller.indexOf(chef) : -1;
+      let celler = '';
+      if (!chef) celler = `<td colspan="${roller.length}">${multi(r, 'personer')}</td>`;
+      else {
+        const hoger = roller.length - ci - 1;
+        if (ci > 0) celler += `<td colspan="${ci}">${hoger ? '' : multi(r, 'personer')}</td>`;
+        celler += `<td>${sel(r, chef.id, true)}</td>`;
+        if (hoger) celler += `<td colspan="${hoger}">${multi(r, 'personer')}</td>`;
+      }
+      h += `<tr class="${r.typ}"><td class="nr"></td><td class="klass">${esc(r.typ === 'ombyggnad' ? 'Ombyggnad' : (r.text || 'Annat'))}${r.anteckning ? `<span class="note">${esc(r.anteckning)}</span>` : ''}</td>${celler}${ops(r, i)}</tr>`;
     }
   });
   h += `</tbody></table></div>`;
