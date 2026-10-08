@@ -82,6 +82,13 @@
   .card h3 { margin: 0 0 4px; font-size: 17px; }
   .card .desc { color: var(--muted); font-size: 14px; min-height: 1.4em; }
   .card .meta { display: flex; gap: 14px; margin-top: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .card .kortops { position: absolute; top: 8px; right: 8px; opacity: 0; } .card:hover .kortops { opacity: 1; }
+  .rollrad { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); }
+  .rollrad:first-of-type { border-top: 0; }
+  .datumrad { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: center; padding: 4px 0; }
+  .datumrad input { max-width: 180px; }
+  .inlagg textarea, .komm textarea { width: 100%; margin-top: 4px; }
+  .inlagg .redigerad { color: var(--muted); font-size: 12px; }
   .progress { height: 5px; background: var(--bg2); border-radius: 3px; margin-top: 12px; overflow: hidden; }
   .progress i { display: block; height: 100%; background: var(--green); }
 
@@ -594,6 +601,8 @@ const namn = id => personById(id)?.namn || 'Okänd';
 const initialer = n => n.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
 const dag = id => DAGAR_ALLA.find(d => d.id === id);
 const dagarValda = () => DAGAR_ALLA.filter(d => state.tavling.dagar.includes(d.id));
+// Dagens namn med datum om det är ifyllt under Inställningar: "Fredag 12 feb"
+function dagText(id) { const d = dag(id); if (!d) return id; const dt = state.tavling.datum?.[id]; if (!dt) return d.label; const x = new Date(dt + 'T12:00:00'); return isNaN(x) ? d.label : `${d.label} ${x.getDate()} ${x.toLocaleDateString('sv-SE', { month: 'short' }).replace('.', '')}`; }
 const omrById = id => state.omraden.find(o => o.id === id);
 const sektById = id => state.sektioner.find(s => s.id === id);
 const omradenI = sid => state.omraden.filter(o => o.sektionId === sid);
@@ -611,8 +620,7 @@ function allaPass() {
       const label = r.typ === 'klass' ? banRadText(r) : r.typ === 'ombyggnad' ? (senasteNr != null ? `Ombyggnad efter Klass ${senasteNr}` : 'Ombyggnad') : (r.text || 'Annat');
       const bas = { dag: r.dag, start: '', slut: '', klass: label, bana: true, radId: r.id, omrade: bomr, schema: { id: 'banschema', namn: r.typ === 'ombyggnad' ? 'Ombyggnad' : 'Banschema' } };
       if (r.typ === 'klass') {
-        for (const [falt, roll] of BANROLLER) ut.push({ ...bas, id: r.id + ':' + falt, personer: r[falt] ? [r[falt]] : [], anteckning: roll });
-        ut.push({ ...bas, id: r.id + ':bp', personer: r.banpersonal || [], anteckning: 'Banpersonal' });
+        for (const roll of banRoller()) ut.push({ ...bas, id: r.id + ':' + roll.id, personer: banRollPersoner(r, roll), anteckning: roll.namn });
       } else ut.push({ ...bas, id: r.id + ':p', personer: r.personer || [], anteckning: r.typ === 'ombyggnad' ? 'Ombyggnad' : '' });
     }
   }
@@ -736,7 +744,9 @@ function render() {
 function omradeKort(o) {
   const klar = o.uppgifter.filter(u => u.klar).length, tot = o.uppgifter.length;
   const pass = o.scheman.reduce((n, s) => n + s.pass.length, 0);
-  return `<div class="card click" onclick="go('omrade',{id:'${o.id}'})">
+  const syskon = omradenI(o.sektionId), i = syskon.indexOf(o);
+  return `<div class="card click" onclick="go('omrade',{id:'${o.id}'})" style="position:relative">
+    <span class="kortops" onclick="event.stopPropagation()"><button class="iconbtn" title="Flytta upp" onclick="flyttaOmrade('${o.id}',-1)" ${i === 0 ? 'disabled' : ''}>↑</button><button class="iconbtn" title="Flytta ner" onclick="flyttaOmrade('${o.id}',1)" ${i === syskon.length - 1 ? 'disabled' : ''}>↓</button></span>
     <h3>${esc(o.namn)}</h3>
     <div class="desc">${esc(o.beskrivning) || '<span style="opacity:.6">Ingen beskrivning</span>'}</div>
     <div class="chips" style="margin-top:10px">${o.ansvariga.length ? o.ansvariga.map(p => avatarChip(p)).join('') : '<span class="hint">Ingen ansvarig</span>'}</div>
@@ -757,9 +767,12 @@ function vyOversikt() {
   for (const s of state.sektioner) {
     const os = omradenI(s.id);
     h += `<div class="section-head"><h2>${esc(s.namn)}</h2><div class="line"></div>
-      <button class="iconbtn" title="Byt namn" onclick="dlgSektion('${s.id}')">✎</button>
+      <button class="iconbtn" title="Flytta upp" onclick="flyttaSektion('${s.id}',-1)" ${state.sektioner.indexOf(s) === 0 ? 'disabled' : ''}>↑</button>
+      <button class="iconbtn" title="Flytta ner" onclick="flyttaSektion('${s.id}',1)" ${state.sektioner.indexOf(s) === state.sektioner.length - 1 ? 'disabled' : ''}>↓</button>
+      <button class="iconbtn" title="Redigera kategori" onclick="dlgSektion('${s.id}')">✎</button>
       <button class="iconbtn" title="Nytt område i kategorin" onclick="dlgOmrade(null,'${s.id}')">+</button>
       <button class="iconbtn danger" title="Ta bort kategori" onclick="taBortSektion('${s.id}')">🗑</button></div>`;
+    if (s.beskrivning) h += `<p class="hint" style="margin:-4px 0 10px">${esc(s.beskrivning)}</p>`;
     h += `<div class="grid">${os.map(omradeKort).join('') || '<div class="empty">Inga områden i den här kategorin ännu.</div>'}</div>`;
   }
   return h;
@@ -805,8 +818,8 @@ async function taBortFil(typ, id, fid) {
 function vySektion(id) {
   const s = sektById(id); if (!s) return go('oversikt');
   const os = omradenI(id);
-  return `<div class="topbar"><div><h1>${esc(s.namn)}</h1><div class="sub">Kategori · ${os.length} områden</div></div>
-    <div class="actions"><button class="btn" onclick="dlgSektion('${s.id}')">Byt namn</button><button class="btn primary" onclick="dlgOmrade(null,'${s.id}')">+ Nytt område</button></div></div>
+  return `<div class="topbar"><div><h1>${esc(s.namn)}</h1><div class="sub">${esc(s.beskrivning) || `Kategori · ${os.length} områden`}</div></div>
+    <div class="actions"><button class="btn danger" onclick="taBortSektion('${s.id}')">Ta bort</button><button class="btn" onclick="dlgSektion('${s.id}')">Redigera</button><button class="btn primary" onclick="dlgOmrade(null,'${s.id}')">+ Nytt område</button></div></div>
     <div class="grid">${s.bana ? `<div class="card click" onclick="go('banschema')"><h3>🏇 Banschema</h3><div class="desc">Klass för klass: banchef, insläpp, utsläpp och banpersonal, med ombyggnad emellan.</div>
       <div class="meta"><span>${(state.banrader || []).filter(r => r.typ === 'klass').length} klasser</span><span>${(state.banrader || []).filter(r => r.typ === 'ombyggnad').length} ombyggnader</span><span>${banObemannade()} roller saknar person</span></div></div>` : ''}${s.stall ? `<div class="card click" onclick="go('uppstallning')"><h3>🐴 Stall och boxar</h3><div class="desc">Vilka som står var: kartor och listor per stall, med ryttare, häst, avgift och betalt.</div>
       <div class="meta"><span>${(state.stall || []).length} stall</span><span>${(state.boxar || []).length} boxar</span><span>${(state.boxar || []).filter(boxBelagd).length} belagda</span><span>${(state.boxar || []).filter(b => boxBelagd(b) && b.betalt).length} betalda</span></div></div>` : ''}${os.map(omradeKort).join('') || (s.stall || s.bana ? '' : '<div class="empty">Inga områden ännu.</div>')}</div>
@@ -880,10 +893,12 @@ function renderAnslag() {
   for (const a of poster) {
     h += `<div class="inlagg ${arNy(a, anslagSedan) ? 'ny' : ''}" id="inlagg-${a.id}">
       <div class="top"><span class="avatar">${esc(initialer(a.vem))}</span><b>${esc(a.vem)}</b><span class="tid">${esc(tidStr(a.tid))}</span>${arNy(a, anslagSedan) ? '<span class="badge">Ny</span>' : ''}
-        <span class="ops"><button class="iconbtn danger" title="Ta bort inlägget" onclick="taBortAnslag('${a.id}')">🗑</button></span></div>
-      ${a.rubrik ? `<h3>${esc(a.rubrik)}</h3>` : ''}
-      <div class="text">${anteckningHtml(a.text)}</div>
-      ${a.kommentarer.map(k => `<div class="komm ${arNy(k, anslagSedan) ? 'ny' : ''}"><span class="avatar">${esc(initialer(k.vem))}</span><div><div class="top"><b>${esc(k.vem)}</b> <span class="tid">${esc(tidStr(k.tid))}</span><span class="ops"><button class="iconbtn danger" title="Ta bort kommentaren" onclick="taBortKommentar('${a.id}','${k.id}')">🗑</button></span></div><div class="text">${esc(k.text)}</div></div></div>`).join('')}
+        <span class="ops"><button class="iconbtn" title="Redigera inlägget" onclick="redigeraAnslag('${a.id}')">✎</button><button class="iconbtn danger" title="Ta bort inlägget" onclick="taBortAnslag('${a.id}')">🗑</button></span></div>
+      ${anslagRedigeras === a.id ? `<input type="text" id="red-rubrik-${a.id}" value="${esc(a.rubrik)}" placeholder="Rubrik (valfritt)"><textarea id="red-text-${a.id}" rows="5">${esc(a.text)}</textarea>
+        <div class="rad" style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn small" onclick="anslagRedigeras=null;renderAnslag()">Avbryt</button><button class="btn small primary" onclick="sparaAnslag('${a.id}')">Spara</button></div>`
+      : `${a.rubrik ? `<h3>${esc(a.rubrik)}</h3>` : ''}<div class="text">${anteckningHtml(a.text)}</div>${a.redigerad ? `<div class="redigerad">redigerad ${esc(tidStr(a.redigerad))}</div>` : ''}`}
+      ${a.kommentarer.map(k => `<div class="komm ${arNy(k, anslagSedan) ? 'ny' : ''}"><span class="avatar">${esc(initialer(k.vem))}</span><div><div class="top"><b>${esc(k.vem)}</b> <span class="tid">${esc(tidStr(k.tid))}${k.redigerad ? ' · redigerad' : ''}</span><span class="ops"><button class="iconbtn" title="Redigera kommentaren" onclick="redigeraKommentar('${a.id}','${k.id}')">✎</button><button class="iconbtn danger" title="Ta bort kommentaren" onclick="taBortKommentar('${a.id}','${k.id}')">🗑</button></span></div>
+        ${kommentarRedigeras === k.id ? `<textarea id="red-komm-${k.id}" rows="2">${esc(k.text)}</textarea><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px"><button class="btn small" onclick="kommentarRedigeras=null;renderAnslag()">Avbryt</button><button class="btn small primary" onclick="sparaKommentar('${a.id}','${k.id}')">Spara</button></div>` : `<div class="text">${esc(k.text)}</div>`}</div></div>`).join('')}
       <div class="kommrad"><input type="text" id="komm-${a.id}" placeholder="Skriv en kommentar…" onkeydown="if(event.key==='Enter'){event.preventDefault();nyKommentar('${a.id}')}"><button class="btn small" onclick="nyKommentar('${a.id}')">Kommentera</button></div>
     </div>`;
   }
@@ -901,6 +916,21 @@ function nyKommentar(aid) {
   const a = state.anslag.find(a => a.id === aid); a.kommentarer.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', text });
   save(); renderAnslag(); render();
   document.getElementById('inlagg-' + aid)?.scrollIntoView({ block: 'nearest' });
+}
+let anslagRedigeras = null, kommentarRedigeras = null;
+function redigeraAnslag(aid) { anslagRedigeras = aid; kommentarRedigeras = null; renderAnslag(); document.getElementById('red-text-' + aid)?.focus(); }
+function sparaAnslag(aid) {
+  const a = state.anslag.find(a => a.id === aid); const rubrik = document.getElementById('red-rubrik-' + aid).value.trim(), text = document.getElementById('red-text-' + aid).value.trim();
+  if (!text && !rubrik) { toast('Skriv något först'); return; }
+  if (rubrik !== (a.rubrik || '') || text !== (a.text || '')) { a.rubrik = rubrik; a.text = text; a.redigerad = new Date().toISOString(); save(); }
+  anslagRedigeras = null; renderAnslag(); render();
+}
+function redigeraKommentar(aid, kid) { kommentarRedigeras = kid; anslagRedigeras = null; renderAnslag(); document.getElementById('red-komm-' + kid)?.focus(); }
+function sparaKommentar(aid, kid) {
+  const a = state.anslag.find(a => a.id === aid); const k = a.kommentarer.find(k => k.id === kid); const text = document.getElementById('red-komm-' + kid).value.trim();
+  if (!text) { toast('Skriv något först'); return; }
+  if (text !== k.text) { k.text = text; k.redigerad = new Date().toISOString(); save(); }
+  kommentarRedigeras = null; renderAnslag(); render();
 }
 function taBortAnslag(aid) {
   const a = state.anslag.find(a => a.id === aid);
@@ -982,7 +1012,7 @@ function vySchema() {
   if (schemaTab === 'dag') {
     for (const d of dagar) {
       const pd = pass.filter(p => p.dag === d.id).sort((a, b) => a.omrade.namn.localeCompare(b.omrade.namn, 'sv') || passOrdning(a, b));
-      h += `<div class="section-head"><h2>${esc(d.label)}</h2><div class="line"></div><span class="hint">${pd.length} pass</span></div>`;
+      h += `<div class="section-head"><h2>${esc(dagText(d.id))}</h2><div class="line"></div><span class="hint">${pd.length} pass</span></div>`;
       if (!pd.length) { h += `<div class="empty">Inga pass.</div>`; continue; }
       const perOmr = {};
       for (const p of pd) (perOmr[p.omrade.id] ||= []).push(p);
@@ -1048,7 +1078,7 @@ function vyKlasser() {
   const dagar = [...new Set(klasser.map(k => k.dag))].sort(sortDag);
   for (const d of dagar) {
     const kd = klasser.filter(k => k.dag === d);
-    h += `<div class="section-head"><h2>${esc(dag(d)?.label || d)}</h2><div class="line"></div><span class="hint">${kd.length} klasser</span></div>
+    h += `<div class="section-head"><h2>${esc(dagText(d))}</h2><div class="line"></div><span class="hint">${kd.length} klasser</span></div>
       <div class="block" style="padding:0;overflow:auto"><table class="klasstabell"><thead><tr>
         <th>Klass</th><th>Avd</th><th>Höjd</th><th>Bedömning</th><th></th>
       </tr></thead><tbody>`;
@@ -1103,12 +1133,16 @@ function taBortKlass(kid) {
 }
 
 /* ============ Banschema ============ */
-const BANROLLER = [['banchef', 'Banchef'], ['inslapp', 'Insläpp'], ['utslapp', 'Utsläpp']];
+// Rollerna i banschemat går att ändra under Inställningar. Varje roll har en nyckel som raderna sparar personerna under.
+const BANROLLER_STANDARD = [{ id: 'banchef', namn: 'Banchef', flera: false }, { id: 'inslapp', namn: 'Insläpp', flera: false }, { id: 'utslapp', namn: 'Utsläpp', flera: false }, { id: 'banpersonal', namn: 'Banpersonal', flera: true }];
+const banRoller = () => (state.tavling.banroller && state.tavling.banroller.length) ? state.tavling.banroller : BANROLLER_STANDARD;
+const banRollNamn = id => banRoller().find(r => r.id === id)?.namn || id;
+const banRollPersoner = (r, roll) => roll.flera ? (Array.isArray(r[roll.id]) ? r[roll.id] : (r[roll.id] ? [r[roll.id]] : [])) : (Array.isArray(r[roll.id]) ? r[roll.id].slice(0, 1) : (r[roll.id] ? [r[roll.id]] : []));
 const banaKategori = () => state.sektioner.find(s => s.bana);
 const banradById = id => (state.banrader || []).find(r => r.id === id);
 const banraderFor = d => (state.banrader || []).filter(r => r.dag === d).sort((a, b) => (a.ordning ?? 0) - (b.ordning ?? 0));
 const banRadText = r => r.typ === 'klass' ? (klassById(r.klassId) ? klassKort(klassById(r.klassId)) : (r.text || 'Klass')) : r.typ === 'ombyggnad' ? 'Ombyggnad' : (r.text || 'Annat');
-function banObemannade() { let n = 0; for (const r of (state.banrader || [])) { if (r.typ === 'klass') { for (const [f] of BANROLLER) if (!r[f]) n++; if (!(r.banpersonal || []).length) n++; } else if (!(r.personer || []).length) n++; } return n; }
+function banObemannade() { let n = 0; for (const r of (state.banrader || [])) { if (r.typ === 'klass') { for (const roll of banRoller()) if (!banRollPersoner(r, roll).length) n++; } else if (!(r.personer || []).length) n++; } return n; }
 function loggaBana(text) { const k = banaKategori(); state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: k ? k.id : null, omradeId: null, omrade: '', text, typ: 'bana' }); }
 let banDag = null;
 
@@ -1120,30 +1154,31 @@ function vyBanschema() {
   const klasserDag = [...(state.klasser || [])].filter(k => k.dag === banDag).sort(klassOrdning);
   const saknas = banObemannade();
   let h = `<div class="topbar"><div>${kat ? `<div class="hint" style="cursor:pointer" onclick="go('sektion',{id:'${kat.id}'})">${esc(kat.namn)} ›</div>` : ''}<h1>Banschema</h1>
-      <div class="sub">Klass för klass med banchef, insläpp, utsläpp och banpersonal, och ombyggnad emellan${saknas ? ` · ${saknas} roller saknar person` : ''}</div></div>
+      <div class="sub">Klass för klass med ${esc(banRoller().map(r => r.namn.toLowerCase()).join(', '))}, och ombyggnad emellan${saknas ? ` · ${saknas} roller saknar person` : ''} · <a href="#" onclick="event.preventDefault();go('installningar')">rollerna ändras under Inställningar</a></div></div>
     <div class="actions"><button class="btn" onclick="window.print()">Skriv ut</button>
       <button class="btn" onclick="dlgBanrad('${banDag}','annat')">+ Annat</button>
       <button class="btn" onclick="banLaggTillRad('${banDag}','ombyggnad')">+ Ombyggnad</button>
       <button class="btn primary" onclick="dlgBanrad('${banDag}','klass')">+ Klass</button></div></div>`;
-  h += `<div class="tabs">${dagar.map(d => `<button class="${d.id === banDag ? 'active' : ''}" onclick="banDag='${d.id}';render()">${esc(d.label)} <span class="hint">${banraderFor(d.id).filter(r => r.typ === 'klass').length}</span></button>`).join('')}</div>`;
+  h += `<div class="tabs">${dagar.map(d => `<button class="${d.id === banDag ? 'active' : ''}" onclick="banDag='${d.id}';render()">${esc(dagText(d.id))} <span class="hint">${banraderFor(d.id).filter(r => r.typ === 'klass').length}</span></button>`).join('')}</div>`;
   if (!rader.length) {
-    h += `<div class="block"><div class="empty">Inget banschema för ${esc(dag(banDag)?.label.toLowerCase())} ännu.</div>
+    h += `<div class="block"><div class="empty">Inget banschema för ${esc(dagText(banDag).toLowerCase())} ännu.</div>
       ${klasserDag.length ? `<p class="hint">Det finns ${klasserDag.length} klasser inlagda för dagen under Klasser.</p><button class="btn" onclick="banFyll('${banDag}')">Fyll i från klasserna, med ombyggnad emellan</button>` : '<p class="hint">Lägg in dagens klasser under Klasser först, så kan schemat fyllas i automatiskt. Eller lägg till rader för hand med knapparna ovan.</p>'}</div>`;
     return h + banLogg();
   }
-  const sel = (r, falt) => `<select class="${r[falt] ? '' : 'tom'}" onchange="banSatt('${r.id}','${falt}',this.value)"><option value="">${r[falt] ? 'ingen' : 'välj…'}</option>${state.personer.map(p => `<option value="${p.id}" ${r[falt] === p.id ? 'selected' : ''}>${esc(p.namn)}</option>`).join('')}</select>`;
-  const multi = (r, falt) => { const lista = r[falt] || []; return `<div class="chips">${lista.map(pid => `<span class="chip">${esc(namn(pid))}<span class="x" title="Ta bort" onclick="banTaBortPerson('${r.id}','${falt}','${pid}')">✕</span></span>`).join('')}
+  const sel = (r, falt) => { const v = Array.isArray(r[falt]) ? r[falt][0] : r[falt]; return `<select class="${v ? '' : 'tom'}" onchange="banSatt('${r.id}','${falt}',this.value)"><option value="">${v ? 'ingen' : 'välj…'}</option>${state.personer.map(p => `<option value="${p.id}" ${v === p.id ? 'selected' : ''}>${esc(p.namn)}</option>`).join('')}</select>`; };
+  const multi = (r, falt) => { const lista = Array.isArray(r[falt]) ? r[falt] : (r[falt] ? [r[falt]] : []); return `<div class="chips">${lista.map(pid => `<span class="chip">${esc(namn(pid))}<span class="x" title="Ta bort" onclick="banTaBortPerson('${r.id}','${falt}','${pid}')">✕</span></span>`).join('')}
     <select onchange="banLaggTillPerson('${r.id}','${falt}',this.value)" class="${lista.length ? '' : 'tom'}"><option value="">${lista.length ? '+ fler' : 'välj…'}</option>${state.personer.filter(p => !lista.includes(p.id)).map(p => `<option value="${p.id}">${esc(p.namn)}</option>`).join('')}</select></div>`; };
   const ops = (r, i) => `<td class="ops"><button class="iconbtn" title="Flytta upp" onclick="banFlytta('${r.id}',-1)" ${i === 0 ? 'disabled' : ''}>↑</button><button class="iconbtn" title="Flytta ner" onclick="banFlytta('${r.id}',1)" ${i === rader.length - 1 ? 'disabled' : ''}>↓</button>${r.typ === 'klass' ? `<button class="iconbtn" title="Lägg till ombyggnad efter" onclick="banLaggTillRad('${banDag}','ombyggnad','${r.id}')">⤵</button>` : ''}<button class="iconbtn" title="Redigera" onclick="dlgBanrad('${banDag}','${r.typ}','${r.id}')">✎</button><button class="iconbtn danger" title="Ta bort raden" onclick="banRadBort('${r.id}')">🗑</button></td>`;
-  h += `<div class="block" style="padding:0;overflow:auto"><table class="bantabell"><thead><tr><th></th><th>Klass</th><th>Banchef</th><th>Insläpp</th><th>Utsläpp</th><th>Banpersonal</th><th></th></tr></thead><tbody>`;
+  const roller = banRoller();
+  h += `<div class="block" style="padding:0;overflow:auto"><table class="bantabell"><thead><tr><th></th><th>Klass</th>${roller.map(r => `<th>${esc(r.namn)}</th>`).join('')}<th></th></tr></thead><tbody>`;
   let n = 0;
   rader.forEach((r, i) => {
     if (r.typ === 'klass') {
       n++; const k = klassById(r.klassId);
       h += `<tr><td class="nr">${n}</td><td class="klass">${esc(k ? `Klass ${k.nr}` : (r.text || 'Klass'))}<small>${k ? esc([k.hojd ? k.hojd + ' cm' : '', k.avd ? 'Avd ' + k.avd : '', k.bedomning].filter(Boolean).join(' · ')) : ''}</small>${r.anteckning ? `<span class="note">${esc(r.anteckning)}</span>` : ''}</td>
-        <td>${sel(r, 'banchef')}</td><td>${sel(r, 'inslapp')}</td><td>${sel(r, 'utslapp')}</td><td>${multi(r, 'banpersonal')}</td>${ops(r, i)}</tr>`;
+        ${roller.map(roll => `<td>${roll.flera ? multi(r, roll.id) : sel(r, roll.id)}</td>`).join('')}${ops(r, i)}</tr>`;
     } else {
-      h += `<tr class="${r.typ}"><td class="nr"></td><td class="klass">${esc(r.typ === 'ombyggnad' ? 'Ombyggnad' : (r.text || 'Annat'))}${r.anteckning ? `<span class="note">${esc(r.anteckning)}</span>` : ''}</td><td colspan="4">${multi(r, 'personer')}</td>${ops(r, i)}</tr>`;
+      h += `<tr class="${r.typ}"><td class="nr"></td><td class="klass">${esc(r.typ === 'ombyggnad' ? 'Ombyggnad' : (r.text || 'Annat'))}${r.anteckning ? `<span class="note">${esc(r.anteckning)}</span>` : ''}</td><td colspan="${roller.length}">${multi(r, 'personer')}</td>${ops(r, i)}</tr>`;
     }
   });
   h += `</tbody></table></div>`;
@@ -1155,13 +1190,18 @@ function vyBanschema() {
 const banLogg = () => `<div class="block" style="margin-top:18px"><h2>Ändringslogg <span class="hint" style="font-weight:400">banschemat</span></h2>${loggLista((state.logg || []).filter(r => r.typ === 'bana'), 'bana', false)}</div>`;
 function banOrdna(d) { banraderFor(d).forEach((r, i) => r.ordning = i); }
 function banSatt(rid, falt, pid) {
-  const r = banradById(rid); const fore = r[falt] || null; r[falt] = pid || null; if (fore === r[falt]) return;
-  const roll = Object.fromEntries(BANROLLER)[falt];
+  const r = banradById(rid); const fore = (Array.isArray(r[falt]) ? r[falt][0] : r[falt]) || null; r[falt] = pid || null; if (fore === r[falt]) return;
+  const roll = banRollNamn(falt);
   loggaBana(pid ? `${dag(r.dag)?.label} ${banRadText(r)}: satte ${namn(pid)} som ${roll.toLowerCase()}${fore ? ` (var ${namn(fore)})` : ''}` : `${dag(r.dag)?.label} ${banRadText(r)}: tog bort ${namn(fore)} som ${roll.toLowerCase()}`);
   save(); render();
 }
-function banLaggTillPerson(rid, falt, pid) { if (!pid) return; const r = banradById(rid); r[falt] ||= []; if (r[falt].includes(pid)) return render(); r[falt].push(pid); loggaBana(`${dag(r.dag)?.label} ${banRadText(r)}: satte ${namn(pid)} på ${falt === 'banpersonal' ? 'banpersonal' : r.typ === 'ombyggnad' ? 'ombyggnaden' : 'raden'}`); save(); render(); }
-function banTaBortPerson(rid, falt, pid) { const r = banradById(rid); r[falt] = (r[falt] || []).filter(x => x !== pid); loggaBana(`${dag(r.dag)?.label} ${banRadText(r)}: tog bort ${namn(pid)} från ${falt === 'banpersonal' ? 'banpersonal' : r.typ === 'ombyggnad' ? 'ombyggnaden' : 'raden'}`); save(); render(); }
+const banFaltNamn = (r, falt) => falt === 'personer' ? (r.typ === 'ombyggnad' ? 'ombyggnaden' : 'raden') : banRollNamn(falt).toLowerCase();
+function banLaggTillPerson(rid, falt, pid) { if (!pid) return; const r = banradById(rid); if (!Array.isArray(r[falt])) r[falt] = r[falt] ? [r[falt]] : []; if (r[falt].includes(pid)) return render(); r[falt].push(pid); loggaBana(`${dag(r.dag)?.label} ${banRadText(r)}: satte ${namn(pid)} på ${banFaltNamn(r, falt)}`); save(); render(); }
+function banTaBortPerson(rid, falt, pid) { const r = banradById(rid); r[falt] = (Array.isArray(r[falt]) ? r[falt] : [r[falt]]).filter(x => x && x !== pid); loggaBana(`${dag(r.dag)?.label} ${banRadText(r)}: tog bort ${namn(pid)} från ${banFaltNamn(r, falt)}`); save(); render(); }
+function banRollNy() { state.tavling.banroller = banRoller().map(r => ({ ...r })); state.tavling.banroller.push({ id: uid(), namn: 'Ny roll', flera: false }); save(); render(); }
+function banRollSatt(id, falt, v) { state.tavling.banroller = banRoller().map(r => ({ ...r })); const r = state.tavling.banroller.find(r => r.id === id); if (!r) return; if (falt === 'namn') { v = v.trim(); if (!v) return render(); } r[falt] = v; save(); render(); }
+function banRollFlytta(id, d) { const l = banRoller().map(r => ({ ...r })); const i = l.findIndex(r => r.id === id), j = i + d; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; state.tavling.banroller = l; save(); render(); }
+function banRollBort(id) { const l = banRoller(); if (l.length === 1) return toast('Minst en roll måste finnas'); const r = l.find(r => r.id === id); const anv = (state.banrader || []).filter(x => x.typ === 'klass' && banRollPersoner(x, r).length).length; if (!confirm(`Ta bort rollen "${r.namn}"?${anv ? ` ${anv} rader i banschemat har personer på den; de försvinner ur schemat.` : ''}`)) return; state.tavling.banroller = l.filter(x => x.id !== id).map(x => ({ ...x })); save(); render(); }
 function banFlytta(rid, d) { const r = banradById(rid); const lista = banraderFor(r.dag); const i = lista.indexOf(r), j = i + d; if (j < 0 || j >= lista.length) return; [lista[i], lista[j]] = [lista[j], lista[i]]; lista.forEach((x, n) => x.ordning = n); save(); render(); }
 function banRadBort(rid) { const r = banradById(rid); if (!confirm(`Ta bort raden "${banRadText(r)}" (${dag(r.dag)?.label})?`)) return; state.banrader = state.banrader.filter(x => x.id !== rid); banOrdna(r.dag); loggaBana(`${dag(r.dag)?.label}: tog bort raden ${banRadText(r)}`); if (dlg.open) dlg.close(); save(); render(); }
 function banLaggTillRad(d, typ, efterId, extra = {}) {
@@ -1282,7 +1322,8 @@ function dlgBox(bid, stallDefault) {
     <div class="two" style="gap:12px">
       <div><label class="f">Stall</label><select name="stall">${(state.stall || []).map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${esc(s.namn)}</option>`).join('')}</select></div>
       <div><label class="f">Boxnummer</label><input type="text" name="nr" value="${esc(b ? b.nr : nastaBoxNr(sid))}" required></div>
-      <div><label class="f">Storlek</label><select name="storlek">${Object.entries(STORLEK).map(([k, v]) => `<option value="${k}" ${(b?.storlek || 'stor') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+      <div><label class="f">Storlek eller typ</label><input type="text" name="storlek" list="storlekar" value="${esc(b ? (STORLEK[b.storlek] || b.storlek || '') : 'Stor box')}" placeholder="T.ex. Stor box, Mindre box, Utebox, Ponnybox">
+        <datalist id="storlekar">${[...new Set([...Object.values(STORLEK), ...(state.boxar || []).map(x => STORLEK[x.storlek] || x.storlek).filter(Boolean)])].map(v => `<option value="${esc(v)}">`).join('')}</datalist></div>
       <div><label class="f">Sida om stallgången</label><select name="sida"><option value="v" ${(b?.sida || 'v') === 'v' ? 'selected' : ''}>Vänster</option><option value="h" ${b?.sida === 'h' ? 'selected' : ''}>Höger</option></select></div>
       <div><label class="f">Ryttare</label><input type="text" name="ryttare" value="${esc(b?.ryttare)}"></div>
       <div><label class="f">Häst</label><input type="text" name="hast" value="${esc(b?.hast)}"></div>
@@ -1294,9 +1335,10 @@ function dlgBox(bid, stallDefault) {
     ${foot(b ? `<button type="button" class="btn danger" onclick="taBortBox('${b.id}')">Ta bort box</button>` : '')}`,
     f => {
       const nr = f.nr.value.trim(); if (!nr) return false;
-      const d = { stallId: f.stall.value, nr, storlek: f.storlek.value, sida: f.sida.value, ryttare: f.ryttare.value.trim(), hast: f.hast.value.trim(), foretag: f.foretag.value.trim(), avgift: f.avgift.value === '' ? '' : Number(f.avgift.value), betalt: f.betalt.checked, anteckning: f.anteckning.value.trim() };
+      const storlekText = f.storlek.value.trim(); const storlekNyckel = Object.entries(STORLEK).find(([, v]) => v.toLowerCase() === storlekText.toLowerCase())?.[0] || storlekText;
+      const d = { stallId: f.stall.value, nr, storlek: storlekNyckel, sida: f.sida.value, ryttare: f.ryttare.value.trim(), hast: f.hast.value.trim(), foretag: f.foretag.value.trim(), avgift: f.avgift.value === '' ? '' : Number(f.avgift.value), betalt: f.betalt.checked, anteckning: f.anteckning.value.trim() };
       const dubbel = boxarI(d.stallId).find(x => x !== b && x.nr === nr && (x.storlek || 'stor') === d.storlek);
-      if (dubbel && !confirm(`Det finns redan en ${STORLEK[d.storlek].toLowerCase()} nummer ${nr} i ${stallById(d.stallId)?.namn}. Lägga in en till?`)) return false;
+      if (dubbel && !confirm(`Det finns redan en ${(STORLEK[d.storlek] || d.storlek || 'box').toLowerCase()} nummer ${nr} i ${stallById(d.stallId)?.namn}. Lägga in en till?`)) return false;
       if (b) {
         const andr = [];
         if (d.stallId !== b.stallId || d.nr !== b.nr) andr.push(`flyttade ${b.hast || b.ryttare || 'boxen'} från ${boxText(b)} till ${stallById(d.stallId)?.namn} box ${nr}`);
@@ -1354,9 +1396,18 @@ function vyInstallningar() {
     <label class="f">Vecka eller datum (visas under namnet i menyn)</label><input type="text" value="${esc(state.tavling.vecka)}" placeholder="T.ex. Vecka 7 eller 11–15 februari" onchange="state.tavling.vecka=this.value.trim();save();render()">
     <label class="f">Tävlingsdagar (de dagar som föreslås när du skapar ett schema)</label>
     <div class="daypick">${DAGAR_ALLA.map(d => `<span class="chip pick ${state.tavling.dagar.includes(d.id) ? 'on' : ''}" onclick="toggleTavlingsdag('${d.id}')">${esc(d.label)}</span>`).join('')}</div>
+    <label class="f">Datum för dagarna <span style="font-weight:400">(valfritt, visas i schemats flikar och rubriker)</span></label>
+    ${dagarValda().map(d => `<div class="datumrad"><span>${esc(d.label)}</span><input type="date" value="${esc(state.tavling.datum?.[d.id] || '')}" onchange="sattDatum('${d.id}',this.value)"></div>`).join('')}
+  </div>
+  <div class="block"><h2>Banschemats roller</h2>
+    <p class="hint">Kolumnerna i banschemat. En roll med "flera personer" får chips som banpersonal, annars en rullista med en person. Nya roller får en egen kolumn direkt.</p>
+    ${banRoller().map((r, i, l) => `<div class="rollrad"><input type="text" value="${esc(r.namn)}" onchange="banRollSatt('${r.id}','namn',this.value)">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap"><input type="checkbox" ${r.flera ? 'checked' : ''} onchange="banRollSatt('${r.id}','flera',this.checked)" style="width:16px;height:16px;accent-color:var(--green)"> flera personer</label>
+      <span style="white-space:nowrap"><button class="iconbtn" onclick="banRollFlytta('${r.id}',-1)" ${i === 0 ? 'disabled' : ''}>↑</button><button class="iconbtn" onclick="banRollFlytta('${r.id}',1)" ${i === l.length - 1 ? 'disabled' : ''}>↓</button><button class="iconbtn danger" title="Ta bort rollen" onclick="banRollBort('${r.id}')">🗑</button></span></div>`).join('')}
+    <button class="btn small" style="margin-top:10px" onclick="banRollNy()">+ Ny roll</button>
   </div>
   <div class="block"><h2>Spara och flytta data</h2>
-    <p class="hint">Allt sparas automatiskt i den här webbläsaren på den här datorn. Vill du ha en säkerhetskopia, flytta till en annan dator eller dela med någon annan: exportera till fil och importera den där.</p>
+    <p class="hint">${sb ? 'Allt sparas i databasen och delas av alla som har länken. Exportera om du vill ha en säkerhetskopia som fil; importera läser in en sådan fil och ersätter allt för alla.' : 'Allt sparas automatiskt i den här webbläsaren på den här datorn. Vill du ha en säkerhetskopia, flytta till en annan dator eller dela med någon annan: exportera till fil och importera den där.'}</p>
     <div class="actions"><button class="btn primary" onclick="exportera()">Exportera till fil</button>
       <label class="btn" style="display:inline-block">Importera från fil<input type="file" accept="application/json,.json" style="display:none" onchange="importera(this.files[0])"></label></div>
   </div>
@@ -1367,6 +1418,12 @@ function vyInstallningar() {
 }
 
 /* ============ Åtgärder ============ */
+function flyttaSektion(sid, d) { const i = state.sektioner.findIndex(s => s.id === sid), j = i + d; if (i < 0 || j < 0 || j >= state.sektioner.length) return; [state.sektioner[i], state.sektioner[j]] = [state.sektioner[j], state.sektioner[i]]; save(); render(); }
+function flyttaOmrade(oid, d) {
+  const o = omrById(oid); const syskon = omradenI(o.sektionId); const i = syskon.indexOf(o), j = i + d; if (j < 0 || j >= syskon.length) return;
+  const a = state.omraden.indexOf(syskon[i]), b = state.omraden.indexOf(syskon[j]); [state.omraden[a], state.omraden[b]] = [state.omraden[b], state.omraden[a]]; save(); render();
+}
+function sattDatum(d, v) { state.tavling.datum ||= {}; if (v) state.tavling.datum[d] = v; else delete state.tavling.datum[d]; save(); render(); }
 function toggleTavlingsdag(d) {
   const i = state.tavling.dagar.indexOf(d);
   if (i >= 0) { if (state.tavling.dagar.length === 1) return toast('Minst en dag måste vara vald'); state.tavling.dagar.splice(i, 1); }
@@ -1448,14 +1505,15 @@ function dlgSektion(sid) {
   const s = sid ? sektById(sid) : null;
   openDlg(`<h2>${s ? 'Byt namn på kategori' : 'Ny kategori'}</h2>
     <label class="f">Namn</label><input type="text" name="namn" value="${esc(s?.namn)}" required placeholder="T.ex. Sekretariat">
+    <label class="f">Beskrivning</label><textarea name="beskrivning" rows="2" placeholder="Vad kategorin omfattar, vem som håller i den…">${esc(s?.beskrivning)}</textarea>
     <p class="hint">En kategori samlar flera områden, som Mat samlar Kiosk, Grill och Frukostbuffé. Har kategorin bara ett område kan det heta samma sak, som Parkering.</p>
     <label class="f" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="stall" ${s?.stall ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Stall och boxar ligger under den här kategorin</label>
     <label class="f" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" name="bana" ${s?.bana ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Banschemat ligger under den här kategorin</label>${foot()}`,
     f => { const n = f.namn.value.trim(); if (!n) return false; const st = f.stall.checked, ba = f.bana.checked;
       if (st) for (const x of state.sektioner) if (x !== s && x.stall) delete x.stall;
       if (ba) for (const x of state.sektioner) if (x !== s && x.bana) delete x.bana;
-      if (s) { if (n !== s.namn) { const g = s.namn; s.namn = n; state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: s.id, omradeId: null, omrade: '', text: `döpte om kategorin "${g}" till "${n}"` }); } if (st) s.stall = true; else delete s.stall; if (ba) s.bana = true; else delete s.bana; }
-      else { const ny = { id: uid(), namn: n }; if (st) ny.stall = true; if (ba) ny.bana = true; state.sektioner.push(ny); state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: ny.id, omradeId: null, omrade: '', text: `skapade kategorin "${n}"` }); oppenKat = ny.id; }
+      if (s) { if (n !== s.namn) { const g = s.namn; s.namn = n; state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: s.id, omradeId: null, omrade: '', text: `döpte om kategorin "${g}" till "${n}"` }); } if (st) s.stall = true; else delete s.stall; if (ba) s.bana = true; else delete s.bana; s.beskrivning = f.beskrivning.value.trim(); }
+      else { const ny = { id: uid(), namn: n, beskrivning: f.beskrivning.value.trim() }; if (st) ny.stall = true; if (ba) ny.bana = true; state.sektioner.push(ny); state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: ny.id, omradeId: null, omrade: '', text: `skapade kategorin "${n}"` }); oppenKat = ny.id; }
       save(); render(); });
 }
 function dlgOmrade(oid, sidDefault) {
@@ -1486,6 +1544,7 @@ function dlgUppgift(oid, uid_) {
     <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end;margin-bottom:4px"><div><label class="f">Uppgift</label><input type="text" name="text" value="${esc(u.text)}" required></div>
     <label class="f" style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" name="klar" ${u.klar ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Klar</label></div>
     <label class="f">Ansvariga <span style="font-weight:400">(klicka för att välja, flera går bra)</span></label>${personPick(uppAnsv(u), 'ansvariga')}
+    <label class="f">Område <span style="font-weight:400">(byt för att flytta uppgiften)</span></label><select name="omrade">${state.sektioner.map(s => `<optgroup label="${esc(s.namn)}">${omradenI(s.id).map(x => `<option value="${x.id}" ${x.id === o.id ? 'selected' : ''}>${esc(x.namn)}</option>`).join('')}</optgroup>`).join('')}</select>
     <div class="vax"><label class="f">Anteckning <span style="font-weight:400">· rader som börjar med - blir punktlista</span></label>
     <textarea name="anteckning" class="stor" placeholder="Skriv fritt: listor, beskrivningar, vad som är bestämt, vem som sa vad, vad som är kvar…\n\n- punkt ett\n- punkt två">${esc(u.anteckning)}</textarea></div>${foot()}`,
     f => {
@@ -1500,6 +1559,12 @@ function dlgUppgift(oid, uid_) {
       if (klar !== !!u.klar) andr.push(`${klar ? 'bockade av' : 'öppnade igen'} uppgiften "${t}"`);
       u.text = t; u.anteckning = ant; sattUppAnsv(u, ansv); u.klar = klar;
       if (andr.length) logga(oid, andr.join(', '));
+      const nyttOid = f.omrade.value;
+      if (nyttOid && nyttOid !== oid && omrById(nyttOid)) {
+        const mal = omrById(nyttOid); o.uppgifter = o.uppgifter.filter(x => x !== u); mal.uppgifter.push(u);
+        logga(oid, `flyttade uppgiften "${t}" till ${mal.namn}`); logga(nyttOid, `fick uppgiften "${t}" flyttad från ${o.namn}`);
+        save(); go('omrade', { id: nyttOid }); return;
+      }
       save(); render();
     }, true);
 }
