@@ -122,6 +122,17 @@
   .task .note { font-size: 13px; color: var(--muted); white-space: pre-wrap; margin: 4px 0 2px; padding-left: 8px; border-left: 2px solid var(--border); cursor: pointer; }
   .task .who { font-size: 13px; color: var(--muted); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
   .task .who .chip { padding: 1px 8px; font-size: 12px; }
+  .protokoll { display: grid; grid-template-columns: 120px 1fr auto; gap: 14px; align-items: start; padding: 12px 0; border-top: 1px solid var(--border); cursor: pointer; }
+  .protokoll:first-of-type { border-top: 0; }
+  .protokoll:hover { background: rgba(0,0,0,.02); }
+  .protokoll .datum { font-weight: 600; white-space: nowrap; }
+  .protokoll .datum small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+  .protokoll h3 { margin: 0 0 2px; font-size: 15px; }
+  .protokoll .utdrag { color: var(--muted); font-size: 13px; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .protokoll .meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .protokolltext { white-space: pre-wrap; line-height: 1.6; font-size: 15px; }
+  .protokolltext ul { margin: 4px 0; padding-left: 20px; }
+  @media (max-width: 700px) { .protokoll { grid-template-columns: 1fr; gap: 4px; } }
   .filrad { display: flex; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--border); font-size: 14px; }
   .filrad:first-of-type { border-top: 0; }
   .filrad a { text-decoration: none; font-weight: 600; }
@@ -410,7 +421,7 @@ function seedData() {
   return {
     version: 1,
     tavling: { namn: 'Ronneby Horse Show', vecka: 'Vecka 7', dagar: ['ons', 'tor', 'fre', 'lor', 'son'] },
-    personer, sektioner: Object.values(S), omraden, klasser: [], stall: [], boxar: [], banrader: [],
+    personer, sektioner: Object.values(S), omraden, klasser: [], stall: [], boxar: [], banrader: [], protokoll: [],
   };
 }
 
@@ -440,6 +451,7 @@ function tillRader(st) {
   (st.stall || []).forEach((x, i) => { x.ordning = i; r.push({ samling: 'stall', id: x.id, data: x }); });
   (st.boxar || []).forEach(x => r.push({ samling: 'boxar', id: x.id, data: x }));
   (st.banrader || []).forEach(x => r.push({ samling: 'banrader', id: x.id, data: x }));
+  (st.protokoll || []).forEach(x => r.push({ samling: 'protokoll', id: x.id, data: x }));
   st.sektioner.forEach((x, i) => { x.ordning = i; r.push({ samling: 'sektioner', id: x.id, data: x }); });
   st.omraden.forEach((x, i) => { x.ordning = i; r.push({ samling: 'omraden', id: x.id, data: x }); });
   (st.logg || []).forEach(x => r.push({ samling: 'logg', id: x.id, data: x }));
@@ -453,7 +465,7 @@ function franRader(rader) {
   return {
     version: 1,
     tavling: g.installningar?.[0] || seedData().tavling,
-    personer: g.personer || [], klasser: g.klasser || [], stall: (g.stall || []).sort(ordn), boxar: g.boxar || [], banrader: g.banrader || [], sektioner: (g.sektioner || []).sort(ordn), omraden: (g.omraden || []).sort(ordn),
+    personer: g.personer || [], klasser: g.klasser || [], stall: (g.stall || []).sort(ordn), boxar: g.boxar || [], banrader: g.banrader || [], protokoll: g.protokoll || [], sektioner: (g.sektioner || []).sort(ordn), omraden: (g.omraden || []).sort(ordn),
     logg: (g.logg || []).sort(tid), anslag: (g.anslag || []).sort(tid),
   };
 }
@@ -520,7 +532,7 @@ function tillampa(rader) {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
 }
 // Ändringar från andra: bara den berörda raden rörs, så egna osparade ändringar i andra rader står kvar.
-const SAMLING_LISTA = { personer: 'personer', klasser: 'klasser', stall: 'stall', boxar: 'boxar', banrader: 'banrader', sektioner: 'sektioner', omraden: 'omraden', logg: 'logg', anslag: 'anslag' };
+const SAMLING_LISTA = { personer: 'personer', klasser: 'klasser', stall: 'stall', boxar: 'boxar', banrader: 'banrader', protokoll: 'protokoll', sektioner: 'sektioner', omraden: 'omraden', logg: 'logg', anslag: 'anslag' };
 function tillampaRad(r) {
   const k = nyckel(r); const j = kanon(r.data);
   if (r.samling === 'installningar') { mergeInPlace(state.tavling, r.data); }
@@ -701,6 +713,7 @@ function renderNav() {
     <button class="${act('oversikt')}" onclick="go('oversikt')">🏠 Översikt ${anslagBadge()}</button>
     <button class="${act('schema')}" onclick="go('schema')">📅 Schema <span class="count">${allaPass().length}</span></button>
     <button class="${act('klasser')}" onclick="go('klasser')">🏇 Klasser <span class="count">${(state.klasser || []).length}</span></button>
+    <button class="${act('protokoll') || act('protokollvisa')}" onclick="go('protokoll')">📝 Mötesprotokoll <span class="count">${(state.protokoll || []).length}</span></button>
     ${stallKategori() ? '' : `<button class="${act('uppstallning')}" onclick="go('uppstallning')">🐴 Uppstallning <span class="count">${(state.boxar || []).length}</span></button>`}
     ${banaKategori() ? '' : `<button class="${act('banschema')}" onclick="go('banschema')">🏇 Banschema <span class="count">${(state.banrader || []).length}</span></button>`}
     <button class="${act('personer')}" onclick="go('personer')">👥 Personer <span class="count">${state.personer.length}</span></button>
@@ -739,6 +752,8 @@ function render() {
   else if (v === 'schema') m.innerHTML = vySchema();
   else if (v === 'personer') m.innerHTML = vyPersoner();
   else if (v === 'klasser') m.innerHTML = vyKlasser();
+  else if (v === 'protokoll') m.innerHTML = vyProtokoll();
+  else if (v === 'protokollvisa') m.innerHTML = vyProtokollVisa(route.id);
   else if (v === 'uppstallning') m.innerHTML = vyUppstallning();
   else if (v === 'banschema') m.innerHTML = vyBanschema();
   else if (v === 'installningar') m.innerHTML = vyInstallningar();
@@ -785,9 +800,10 @@ function vyOversikt() {
 const FIL_BUCKET = 'filer', FIL_MAX = 50 * 1024 * 1024;
 const filUrl = path => sb ? sb.storage.from(FIL_BUCKET).getPublicUrl(path).data.publicUrl : '#';
 const storlekText = n => n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' kB' : n + ' B';
-const filAgare = (typ, id) => typ === 'kategori' ? sektById(id) : omrById(id);
+const filAgare = (typ, id) => typ === 'kategori' ? sektById(id) : typ === 'protokoll' ? protokollById(id) : omrById(id);
 function loggaFil(typ, agare, text) {
   if (typ === 'omrade') return logga(agare.id, text);
+  if (typ === 'protokoll') return loggaProtokoll(`${text} på protokollet ${protokollNamn(agare)}`);
   state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: agare.id, omradeId: null, omrade: '', text: `${text} på kategorin ${agare.namn}` });
 }
 function filerBlock(typ, agare) {
@@ -1256,6 +1272,60 @@ function dlgBanrad(d, typ, rid) {
       if (r) { const fore = banRadText(r); r.klassId = klassId; r.text = text; r.anteckning = ant; loggaBana(`${dag(d)?.label}: ändrade raden ${fore}${banRadText(r) !== fore ? ` till ${banRadText(r)}` : ''}`); save(); render(); }
       else banLaggTillRad(d, typ, null, { klassId, text, anteckning: ant });
     });
+}
+
+/* ============ Mötesprotokoll ============ */
+const protokollById = id => (state.protokoll || []).find(x => x.id === id);
+const protokollNamn = x => `${x.datum || 'utan datum'}${x.rubrik ? ' ' + x.rubrik : ''}`;
+const protokollOrdning = (a, b) => (b.datum || '').localeCompare(a.datum || '') || (b.tid || '').localeCompare(a.tid || '');
+const datumText = d => { if (!d) return 'Inget datum'; const x = new Date(d + 'T12:00:00'); return isNaN(x) ? d : x.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }); };
+function loggaProtokoll(text) { state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: null, omradeId: null, omrade: '', text, typ: 'protokoll' }); }
+
+function vyProtokoll() {
+  const lista = [...(state.protokoll || [])].sort(protokollOrdning);
+  let h = `<div class="topbar"><div><h1>Mötesprotokoll</h1><div class="sub">${lista.length ? `${lista.length} protokoll` : 'Inga protokoll ännu'} · skriv direkt i appen eller bifoga ett dokument</div></div>
+    <div class="actions"><button class="btn primary" onclick="dlgProtokoll()">+ Nytt protokoll</button></div></div>`;
+  h += `<div class="block">${lista.map(x => `<div class="protokoll" onclick="go('protokollvisa',{id:'${x.id}'})">
+      <div class="datum">${esc(x.datum || '–')}<small>${esc(datumText(x.datum).split(' ')[0])}</small></div>
+      <div><h3>${esc(x.rubrik) || '<span class="hint">Utan rubrik</span>'}</h3><div class="utdrag">${esc(x.text) || '<span class="hint">Ingen text, bara bifogade dokument</span>'}</div></div>
+      <div class="meta">${(x.filer || []).length ? `📎 ${(x.filer || []).length}<br>` : ''}${esc(x.vem)}</div></div>`).join('') || '<div class="empty">Inga protokoll ännu. Klicka på Nytt protokoll, sätt datum och rubrik, skriv i rutan eller bifoga dokumentet från mötet.</div>'}</div>`;
+  h += `<div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">protokoll</span></h2>${loggLista((state.logg || []).filter(r => r.typ === 'protokoll'), 'protokoll', false)}</div>`;
+  return h;
+}
+function vyProtokollVisa(id) {
+  const x = protokollById(id); if (!x) return go('protokoll');
+  return `<div class="topbar"><div><div class="hint" style="cursor:pointer" onclick="go('protokoll')">Mötesprotokoll ›</div><h1>${esc(x.rubrik) || 'Protokoll'}</h1>
+      <div class="sub">${esc(datumText(x.datum))} · skrivet av ${esc(x.vem)}${x.redigerad ? ` · ändrat ${esc(tidStr(x.redigerad))}` : ''}</div></div>
+    <div class="actions"><button class="btn danger" onclick="taBortProtokoll('${x.id}')">Ta bort</button><button class="btn" onclick="window.print()">Skriv ut</button><button class="btn primary" onclick="dlgProtokoll('${x.id}')">Redigera</button></div></div>
+    <div class="two"><div class="block"><h2>Protokoll</h2>${x.text ? `<div class="protokolltext">${anteckningHtml(x.text)}</div>` : '<div class="empty">Ingen text. Klicka på Redigera för att skriva, eller bifoga dokumentet till höger.</div>'}</div>
+    <div>${filerBlock('protokoll', x)}</div></div>`;
+}
+function dlgProtokoll(id) {
+  const x = id ? protokollById(id) : null;
+  const idag = new Date(); const idagStr = `${idag.getFullYear()}-${String(idag.getMonth() + 1).padStart(2, '0')}-${String(idag.getDate()).padStart(2, '0')}`;
+  openDlg(`<h2>${x ? 'Redigera protokoll' : 'Nytt protokoll'}</h2>
+    <div class="two" style="gap:12px;margin-bottom:4px"><div><label class="f">Datum för mötet</label><input type="date" name="datum" value="${esc(x ? x.datum : idagStr)}" required></div>
+    <div><label class="f">Rubrik</label><input type="text" name="rubrik" value="${esc(x?.rubrik)}" placeholder="T.ex. Planeringsmöte, Avstämning tältstall"></div></div>
+    <div class="vax"><label class="f">Protokoll <span style="font-weight:400">· rader som börjar med - blir punktlista</span></label>
+    <textarea name="text" class="stor" placeholder="Närvarande:\n- …\n\nBeslut:\n- …\n\nAtt göra till nästa gång:\n- …">${esc(x?.text)}</textarea></div>
+    ${x ? '' : '<p class="hint" style="margin:8px 0 0">Dokument bifogas på protokollets sida när det är sparat.</p>'}${foot()}`,
+    f => {
+      const datum = f.datum.value, rubrik = f.rubrik.value.trim(), text = f.text.value.trim();
+      if (!datum) { alert('Sätt ett datum för mötet.'); return false; }
+      if (x) {
+        const andr = []; if (datum !== x.datum) andr.push('datum'); if (rubrik !== (x.rubrik || '')) andr.push('rubrik'); if (text !== (x.text || '')) andr.push('texten');
+        x.datum = datum; x.rubrik = rubrik; x.text = text; if (andr.length) { x.redigerad = new Date().toISOString(); loggaProtokoll(`ändrade ${andr.join(', ')} i protokollet ${protokollNamn(x)}`); }
+        save(); render();
+      } else {
+        state.protokoll ||= []; const ny = { id: uid(), datum, rubrik, text, filer: [], vem: vem || 'Okänd', tid: new Date().toISOString() }; state.protokoll.push(ny);
+        loggaProtokoll(`skrev protokollet ${protokollNamn(ny)}`); save(); go('protokollvisa', { id: ny.id });
+      }
+    }, true);
+}
+function taBortProtokoll(id) {
+  const x = protokollById(id); if (!confirm(`Ta bort protokollet ${protokollNamn(x)}${(x.filer || []).length ? ` med ${x.filer.length} bifogade dokument` : ''}?`)) return;
+  state.protokoll = state.protokoll.filter(y => y.id !== id); loggaProtokoll(`tog bort protokollet ${protokollNamn(x)}`); save(); go('protokoll');
+  if (sb && (x.filer || []).length) sb.storage.from(FIL_BUCKET).remove(x.filer.map(f => f.path)).then(({ error }) => { if (error) console.warn(error); });
 }
 
 /* ============ Uppstallning ============ */
