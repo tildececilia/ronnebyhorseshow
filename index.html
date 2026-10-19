@@ -695,6 +695,9 @@ function avatarChip(pid, removable) {
 let route = { view: 'oversikt' };
 let oppenKat = null;
 const stallKategori = () => state.sektioner.find(s => s.stall);
+// Menyposterna Stall och boxar / Banschema kan döpas om i kategorirutan.
+const stallNamn = () => stallKategori()?.stallNamn || 'Stall och boxar';
+const banaNamn = () => (state.sektioner.find(s => s.bana) || {}).banaNamn || 'Banschema';
 function katForRoute(r) {
   if (r.view === 'sektion') return r.id;
   if (r.view === 'omrade') return omrById(r.id)?.sektionId || null;
@@ -723,8 +726,8 @@ function renderNav() {
     h += `<div class="sub ${oppen ? 'oppen' : ''}">`;
     h += `<button class="kat ${act('sektion', { id: s.id })}" onclick="klickKategori('${s.id}')"><span class="pil">${oppen ? '▾' : '▸'}</span>${esc(s.namn)}<span class="count">${os.length + (s.stall ? 1 : 0) + (s.bana ? 1 : 0)}</span></button>`;
     if (oppen) {
-      if (s.bana) h += `<button class="${act('banschema')}" onclick="go('banschema')">🏇 Banschema <span class="count">${(state.banrader || []).length}</span></button>`;
-      if (s.stall) h += `<button class="${act('uppstallning')}" onclick="go('uppstallning')">🐴 Stall och boxar <span class="count">${(state.boxar || []).length}</span></button>`;
+      if (s.bana) h += `<button class="${act('banschema')}" onclick="go('banschema')">🏇 ${esc(banaNamn())} <span class="count">${(state.banrader || []).length}</span></button>`;
+      if (s.stall) h += `<button class="${act('uppstallning')}" onclick="go('uppstallning')">🐴 ${esc(stallNamn())} <span class="count">${(state.boxar || []).length}</span></button>`;
       for (const o of os) h += `<button class="${act('omrade', { id: o.id })}" onclick="go('omrade',{id:'${o.id}'})">${esc(o.namn)}</button>`;
       if (!os.length && !s.stall && !s.bana) h += `<div class="hint" style="padding:4px 22px 8px">Inga områden ännu</div>`;
     }
@@ -839,8 +842,8 @@ function vySektion(id) {
   const os = omradenI(id);
   return `<div class="topbar"><div><h1>${esc(s.namn)}</h1><div class="sub">${esc(s.beskrivning) || `Kategori · ${os.length} områden`}</div></div>
     <div class="actions"><button class="btn danger" onclick="taBortSektion('${s.id}')">Ta bort</button><button class="btn" onclick="dlgSektion('${s.id}')">Redigera</button><button class="btn primary" onclick="dlgOmrade(null,'${s.id}')">+ Nytt område</button></div></div>
-    <div class="grid">${s.bana ? `<div class="card click" onclick="go('banschema')"><h3>🏇 Banschema</h3><div class="desc">Klass för klass: banchef, insläpp, utsläpp och banpersonal, med ombyggnad emellan.</div>
-      <div class="meta"><span>${(state.banrader || []).filter(r => r.typ === 'klass').length} klasser</span><span>${(state.banrader || []).filter(r => r.typ === 'ombyggnad').length} ombyggnader</span><span>${banObemannade()} roller saknar person</span></div></div>` : ''}${s.stall ? `<div class="card click" onclick="go('uppstallning')"><h3>🐴 Stall och boxar</h3><div class="desc">Vilka som står var: kartor och listor per stall, med ryttare, häst, avgift och betalt.</div>
+    <div class="grid">${s.bana ? `<div class="card click" onclick="go('banschema')"><h3>🏇 ${esc(banaNamn())}</h3><div class="desc">Klass för klass: banchef, insläpp, utsläpp och banpersonal, med ombyggnad emellan.</div>
+      <div class="meta"><span>${(state.banrader || []).filter(r => r.typ === 'klass').length} klasser</span><span>${(state.banrader || []).filter(r => r.typ === 'ombyggnad').length} ombyggnader</span><span>${banObemannade()} roller saknar person</span></div></div>` : ''}${s.stall ? `<div class="card click" onclick="go('uppstallning')"><h3>🐴 ${esc(stallNamn())}</h3><div class="desc">Vilka som står var: kartor och listor per stall, med ryttare, häst, avgift och betalt.</div>
       <div class="meta"><span>${(state.stall || []).length} stall</span><span>${(state.boxar || []).length} boxar</span><span>${(state.boxar || []).filter(boxBelagd).length} belagda</span><span>${(state.boxar || []).filter(b => boxBelagd(b) && b.betalt).length} betalda</span></div></div>` : ''}${os.map(omradeKort).join('') || (s.stall || s.bana ? '' : '<div class="empty">Inga områden ännu.</div>')}</div>
     <div style="margin-top:24px">${filerBlock('kategori', s)}</div>
     <div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">allt som gjorts i kategorin, och av vem</span></h2>
@@ -1174,7 +1177,7 @@ function vyBanschema() {
   const rader = banraderFor(banDag);
   const klasserDag = [...(state.klasser || [])].filter(k => k.dag === banDag).sort(klassOrdning);
   const saknas = banObemannade();
-  let h = `<div class="topbar"><div>${kat ? `<div class="hint" style="cursor:pointer" onclick="go('sektion',{id:'${kat.id}'})">${esc(kat.namn)} ›</div>` : ''}<h1>Banschema</h1>
+  let h = `<div class="topbar"><div>${kat ? `<div class="hint" style="cursor:pointer" onclick="go('sektion',{id:'${kat.id}'})">${esc(kat.namn)} ›</div>` : ''}<h1>${esc(banaNamn())}</h1>
       <div class="sub">Klass för klass med ${esc(banRoller().map(r => r.namn.toLowerCase()).join(', '))}, och ombyggnad emellan${saknas ? ` · ${saknas} roller saknar person` : ''} · <a href="#" onclick="event.preventDefault();go('installningar')">rollerna ändras under Inställningar</a></div></div>
     <div class="actions"><button class="btn" onclick="window.print()">Skriv ut</button>
       <button class="btn" onclick="dlgBanrad('${banDag}','annat')">+ Annat</button>
@@ -1343,7 +1346,7 @@ function vyUppstallning() {
   if (!valtStall || !stallById(valtStall)) valtStall = stall[0]?.id || null;
   const belagda = boxar.filter(boxBelagd), betalda = belagda.filter(b => b.betalt);
   const kat = stallKategori();
-  let h = `<div class="topbar"><div>${kat ? `<div class="hint" style="cursor:pointer" onclick="go('sektion',{id:'${kat.id}'})">${esc(kat.namn)} ›</div>` : ''}<h1>Stall och boxar</h1><div class="sub">${stall.length} stall · ${boxar.length} boxar · ${belagda.length} belagda · ${betalda.length} betalda</div></div>
+  let h = `<div class="topbar"><div>${kat ? `<div class="hint" style="cursor:pointer" onclick="go('sektion',{id:'${kat.id}'})">${esc(kat.namn)} ›</div>` : ''}<h1>${esc(stallNamn())}</h1><div class="sub">${stall.length} stall · ${boxar.length} boxar · ${belagda.length} belagda · ${betalda.length} betalda</div></div>
     <div class="actions"><button class="btn" onclick="window.print()">Skriv ut</button><button class="btn" onclick="dlgStall()">+ Nytt stall</button><button class="btn primary" onclick="dlgBox(null, valtStall)" ${stall.length ? '' : 'disabled'}>+ Ny box</button></div></div>`;
   h += `<div style="margin-bottom:14px"><input type="text" value="${esc(boxSok)}" placeholder="Sök ryttare, häst eller företag i alla stall…" oninput="boxSok=this.value;render();const i=document.getElementById('boxSokFalt');i.focus();i.setSelectionRange(i.value.length,i.value.length)" id="boxSokFalt" style="max-width:420px"></div>`;
   if (boxSok.trim()) {
@@ -1592,13 +1595,18 @@ function dlgSektion(sid) {
     <label class="f">Namn</label><input type="text" name="namn" value="${esc(s?.namn)}" required placeholder="T.ex. Sekretariat">
     <label class="f">Beskrivning</label><textarea name="beskrivning" rows="2" placeholder="Vad kategorin omfattar, vem som håller i den…">${esc(s?.beskrivning)}</textarea>
     <p class="hint">En kategori samlar flera områden, som Mat samlar Kiosk, Grill och Frukostbuffé. Har kategorin bara ett område kan det heta samma sak, som Parkering.</p>
-    <label class="f" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="stall" ${s?.stall ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Stall och boxar ligger under den här kategorin</label>
-    <label class="f" style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" name="bana" ${s?.bana ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)"> Banschemat ligger under den här kategorin</label>${foot()}`,
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
+      <label class="f" style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" name="stall" ${s?.stall ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)" onchange="this.form.stallNamn.disabled=!this.checked"> Stall och boxar ligger här</label>
+      <div><label class="f">Namn i menyn</label><input type="text" name="stallNamn" value="${esc(s?.stallNamn || 'Stall och boxar')}" ${s?.stall ? '' : 'disabled'}></div>
+      <label class="f" style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" name="bana" ${s?.bana ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)" onchange="this.form.banaNamn.disabled=!this.checked"> Banschemat ligger här</label>
+      <div><label class="f">Namn i menyn</label><input type="text" name="banaNamn" value="${esc(s?.banaNamn || 'Banschema')}" ${s?.bana ? '' : 'disabled'}></div>
+    </div>
+    <p class="hint">Kryssar du av tas posten bort ur kategorin. Stallen, boxarna och banschemat finns kvar och kommer tillbaka om krysset sätts på en kategori igen.</p>${foot()}`,
     f => { const n = f.namn.value.trim(); if (!n) return false; const st = f.stall.checked, ba = f.bana.checked;
       if (st) for (const x of state.sektioner) if (x !== s && x.stall) delete x.stall;
       if (ba) for (const x of state.sektioner) if (x !== s && x.bana) delete x.bana;
-      if (s) { if (n !== s.namn) { const g = s.namn; s.namn = n; state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: s.id, omradeId: null, omrade: '', text: `döpte om kategorin "${g}" till "${n}"` }); } if (st) s.stall = true; else delete s.stall; if (ba) s.bana = true; else delete s.bana; s.beskrivning = f.beskrivning.value.trim(); }
-      else { const ny = { id: uid(), namn: n, beskrivning: f.beskrivning.value.trim() }; if (st) ny.stall = true; if (ba) ny.bana = true; state.sektioner.push(ny); state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: ny.id, omradeId: null, omrade: '', text: `skapade kategorin "${n}"` }); oppenKat = ny.id; }
+      if (s) { if (n !== s.namn) { const g = s.namn; s.namn = n; state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: s.id, omradeId: null, omrade: '', text: `döpte om kategorin "${g}" till "${n}"` }); } if (st) { s.stall = true; s.stallNamn = f.stallNamn.value.trim() || 'Stall och boxar'; } else { delete s.stall; delete s.stallNamn; } if (ba) { s.bana = true; s.banaNamn = f.banaNamn.value.trim() || 'Banschema'; } else { delete s.bana; delete s.banaNamn; } s.beskrivning = f.beskrivning.value.trim(); }
+      else { const ny = { id: uid(), namn: n, beskrivning: f.beskrivning.value.trim() }; if (st) { ny.stall = true; ny.stallNamn = f.stallNamn.value.trim() || 'Stall och boxar'; } if (ba) { ny.bana = true; ny.banaNamn = f.banaNamn.value.trim() || 'Banschema'; } state.sektioner.push(ny); state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: ny.id, omradeId: null, omrade: '', text: `skapade kategorin "${n}"` }); oppenKat = ny.id; }
       save(); render(); });
 }
 function dlgOmrade(oid, sidDefault) {
