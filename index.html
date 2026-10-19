@@ -842,8 +842,8 @@ function vySektion(id) {
   const os = omradenI(id);
   return `<div class="topbar"><div><h1>${esc(s.namn)}</h1><div class="sub">${esc(s.beskrivning) || `Kategori · ${os.length} områden`}</div></div>
     <div class="actions"><button class="btn danger" onclick="taBortSektion('${s.id}')">Ta bort</button><button class="btn" onclick="dlgSektion('${s.id}')">Redigera</button><button class="btn primary" onclick="dlgOmrade(null,'${s.id}')">+ Nytt område</button></div></div>
-    <div class="grid">${s.bana ? `<div class="card click" onclick="go('banschema')"><h3>🏇 ${esc(banaNamn())}</h3><div class="desc">Klass för klass: banchef, insläpp, utsläpp och banpersonal, med ombyggnad emellan.</div>
-      <div class="meta"><span>${(state.banrader || []).filter(r => r.typ === 'klass').length} klasser</span><span>${(state.banrader || []).filter(r => r.typ === 'ombyggnad').length} ombyggnader</span><span>${banObemannade()} roller saknar person</span></div></div>` : ''}${s.stall ? `<div class="card click" onclick="go('uppstallning')"><h3>🐴 ${esc(stallNamn())}</h3><div class="desc">Vilka som står var: kartor och listor per stall, med ryttare, häst, avgift och betalt.</div>
+    <div class="grid">${s.bana ? `<div class="card click" onclick="go('banschema')" style="position:relative"><span class="kortops" onclick="event.stopPropagation()"><button class="iconbtn" title="Byt namn" onclick="dlgInbyggd('bana')">✎</button><button class="iconbtn danger" title="Ta bort ur kategorin" onclick="taBortInbyggd('bana')">🗑</button></span><h3>🏇 ${esc(banaNamn())}</h3><div class="desc">Klass för klass: banchef, insläpp, utsläpp och banpersonal, med ombyggnad emellan.</div>
+      <div class="meta"><span>${(state.banrader || []).filter(r => r.typ === 'klass').length} klasser</span><span>${(state.banrader || []).filter(r => r.typ === 'ombyggnad').length} ombyggnader</span><span>${banObemannade()} roller saknar person</span></div></div>` : ''}${s.stall ? `<div class="card click" onclick="go('uppstallning')" style="position:relative"><span class="kortops" onclick="event.stopPropagation()"><button class="iconbtn" title="Byt namn" onclick="dlgInbyggd('stall')">✎</button><button class="iconbtn danger" title="Ta bort ur kategorin" onclick="taBortInbyggd('stall')">🗑</button></span><h3>🐴 ${esc(stallNamn())}</h3><div class="desc">Vilka som står var: kartor och listor per stall, med ryttare, häst, avgift och betalt.</div>
       <div class="meta"><span>${(state.stall || []).length} stall</span><span>${(state.boxar || []).length} boxar</span><span>${(state.boxar || []).filter(boxBelagd).length} belagda</span><span>${(state.boxar || []).filter(b => boxBelagd(b) && b.betalt).length} betalda</span></div></div>` : ''}${os.map(omradeKort).join('') || (s.stall || s.bana ? '' : '<div class="empty">Inga områden ännu.</div>')}</div>
     <div style="margin-top:24px">${filerBlock('kategori', s)}</div>
     <div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">allt som gjorts i kategorin, och av vem</span></h2>
@@ -1179,7 +1179,7 @@ function vyBanschema() {
   const saknas = banObemannade();
   let h = `<div class="topbar"><div>${kat ? `<div class="hint" style="cursor:pointer" onclick="go('sektion',{id:'${kat.id}'})">${esc(kat.namn)} ›</div>` : ''}<h1>${esc(banaNamn())}</h1>
       <div class="sub">Klass för klass med ${esc(banRoller().map(r => r.namn.toLowerCase()).join(', '))}, och ombyggnad emellan${saknas ? ` · ${saknas} roller saknar person` : ''} · <a href="#" onclick="event.preventDefault();go('installningar')">rollerna ändras under Inställningar</a></div></div>
-    <div class="actions"><button class="btn" onclick="window.print()">Skriv ut</button>
+    <div class="actions"><button class="btn" onclick="dlgInbyggd('bana')">Byt namn</button><button class="btn" onclick="window.print()">Skriv ut</button>
       <button class="btn" onclick="dlgBanrad('${banDag}','annat')">+ Annat</button>
       <button class="btn" onclick="banLaggTillRad('${banDag}','ombyggnad')">+ Ombyggnad</button>
       <button class="btn primary" onclick="dlgBanrad('${banDag}','klass')">+ Klass</button></div></div>`;
@@ -1347,7 +1347,7 @@ function vyUppstallning() {
   const belagda = boxar.filter(boxBelagd), betalda = belagda.filter(b => b.betalt);
   const kat = stallKategori();
   let h = `<div class="topbar"><div>${kat ? `<div class="hint" style="cursor:pointer" onclick="go('sektion',{id:'${kat.id}'})">${esc(kat.namn)} ›</div>` : ''}<h1>${esc(stallNamn())}</h1><div class="sub">${stall.length} stall · ${boxar.length} boxar · ${belagda.length} belagda · ${betalda.length} betalda</div></div>
-    <div class="actions"><button class="btn" onclick="window.print()">Skriv ut</button><button class="btn" onclick="dlgStall()">+ Nytt stall</button><button class="btn primary" onclick="dlgBox(null, valtStall)" ${stall.length ? '' : 'disabled'}>+ Ny box</button></div></div>`;
+    <div class="actions"><button class="btn" onclick="dlgInbyggd('stall')">Byt namn</button><button class="btn" onclick="window.print()">Skriv ut</button><button class="btn" onclick="dlgStall()">+ Nytt stall</button><button class="btn primary" onclick="dlgBox(null, valtStall)" ${stall.length ? '' : 'disabled'}>+ Ny box</button></div></div>`;
   h += `<div style="margin-bottom:14px"><input type="text" value="${esc(boxSok)}" placeholder="Sök ryttare, häst eller företag i alla stall…" oninput="boxSok=this.value;render();const i=document.getElementById('boxSokFalt');i.focus();i.setSelectionRange(i.value.length,i.value.length)" id="boxSokFalt" style="max-width:420px"></div>`;
   if (boxSok.trim()) {
     const q = boxSok.trim().toLowerCase();
@@ -1383,6 +1383,30 @@ function vyUppstallning() {
   }
   h += `</div><div class="block"><h2>Ändringslogg <span class="hint" style="font-weight:400">stall och boxar</span></h2>${loggLista((state.logg || []).filter(r => r.typ === 'stall'), 'stall', false)}</div>`;
   return h;
+}
+// De inbyggda sidorna Stall och boxar / Banschema: byt namn eller ta bort ur kategorin direkt från kortet.
+function dlgInbyggd(typ) {
+  const kat = typ === 'stall' ? stallKategori() : state.sektioner.find(x => x.bana);
+  const namnNu = typ === 'stall' ? stallNamn() : banaNamn(); const std = typ === 'stall' ? 'Stall och boxar' : 'Banschema';
+  openDlg(`<h2>Byt namn</h2>
+    <label class="f">Namn i menyn och på sidan</label><input type="text" name="namn" value="${esc(namnNu)}" required placeholder="${esc(std)}">
+    <label class="f">Ligger under kategorin</label><select name="kat">${state.sektioner.map(x => `<option value="${x.id}" ${kat && x.id === kat.id ? 'selected' : ''}>${esc(x.namn)}</option>`).join('')}</select>
+    <p class="hint">${typ === 'stall' ? 'Sidan med stallen och boxarna' : 'Banschemat'} är inbyggd och kan inte tas bort helt, men den går att döpa om, flytta till en annan kategori eller plocka bort ur menyn med papperskorgen på kortet.</p>${foot()}`,
+    f => {
+      const n = f.namn.value.trim() || std; const ny = sektById(f.kat.value); if (!ny) return false;
+      for (const x of state.sektioner) { if (typ === 'stall') { delete x.stall; delete x.stallNamn; } else { delete x.bana; delete x.banaNamn; } }
+      if (typ === 'stall') { ny.stall = true; ny.stallNamn = n; } else { ny.bana = true; ny.banaNamn = n; }
+      state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: ny.id, omradeId: null, omrade: '', text: `${namnNu !== n ? `döpte om "${namnNu}" till "${n}"` : `flyttade "${n}"`} under kategorin ${ny.namn}` });
+      save(); render();
+    });
+}
+function taBortInbyggd(typ) {
+  const kat = typ === 'stall' ? stallKategori() : state.sektioner.find(x => x.bana); if (!kat) return;
+  const namnNu = typ === 'stall' ? stallNamn() : banaNamn();
+  if (!confirm(`Ta bort "${namnNu}" ur kategorin ${kat.namn}? ${typ === 'stall' ? 'Stallen och boxarna' : 'Banschemat'} finns kvar och nås överst i menyn tills posten läggs under en kategori igen.`)) return;
+  if (typ === 'stall') { delete kat.stall; delete kat.stallNamn; } else { delete kat.bana; delete kat.banaNamn; }
+  state.logg ||= []; state.logg.push({ id: uid(), tid: new Date().toISOString(), vem: vem || 'Okänd', kategoriId: kat.id, omradeId: null, omrade: '', text: `tog bort "${namnNu}" ur kategorin ${kat.namn}` });
+  save(); render();
 }
 function dlgStall(sid) {
   const st = sid ? stallById(sid) : null;
