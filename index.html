@@ -82,7 +82,7 @@
   .card h3 { margin: 0 0 4px; font-size: 17px; }
   .card .desc { color: var(--muted); font-size: 14px; min-height: 1.4em; }
   .card .meta { display: flex; gap: 14px; margin-top: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
-  .card .kortops { position: absolute; top: 8px; right: 8px; opacity: 0; } .card:hover .kortops { opacity: 1; }
+  .card .kortops { position: absolute; top: 8px; right: 8px; opacity: .35; } .card:hover .kortops { opacity: 1; }
   .rollrad { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); }
   .rollrad:first-of-type { border-top: 0; }
   .datumrad { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: center; padding: 4px 0; }
@@ -764,7 +764,7 @@ function omradeKort(o) {
   const pass = o.scheman.reduce((n, s) => n + s.pass.length, 0);
   const syskon = omradenI(o.sektionId), i = syskon.indexOf(o);
   return `<div class="card click" onclick="go('omrade',{id:'${o.id}'})" style="position:relative">
-    <span class="kortops" onclick="event.stopPropagation()"><button class="iconbtn" title="Flytta upp" onclick="flyttaOmrade('${o.id}',-1)" ${i === 0 ? 'disabled' : ''}>↑</button><button class="iconbtn" title="Flytta ner" onclick="flyttaOmrade('${o.id}',1)" ${i === syskon.length - 1 ? 'disabled' : ''}>↓</button></span>
+    <span class="kortops" onclick="event.stopPropagation()"><button class="iconbtn" title="Flytta upp" onclick="flyttaOmrade('${o.id}',-1)" ${i === 0 ? 'disabled' : ''}>↑</button><button class="iconbtn" title="Flytta ner" onclick="flyttaOmrade('${o.id}',1)" ${i === syskon.length - 1 ? 'disabled' : ''}>↓</button><button class="iconbtn" title="Redigera område (namn, kategori, beskrivning)" onclick="dlgOmrade('${o.id}')">✎</button><button class="iconbtn danger" title="Ta bort område" onclick="taBortOmrade('${o.id}')">🗑</button></span>
     <h3>${esc(o.namn)}</h3>
     <div class="desc">${esc(o.beskrivning) || '<span style="opacity:.6">Ingen beskrivning</span>'}</div>
     <div class="chips" style="margin-top:10px">${o.ansvariga.length ? o.ansvariga.map(p => avatarChip(p)).join('') : '<span class="hint">Ingen ansvarig</span>'}</div>
